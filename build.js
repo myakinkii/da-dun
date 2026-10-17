@@ -11,13 +11,14 @@ const read = p => readFileSync(new URL(p, root), "utf8");
 const safe = s => s.replace(/<\/(script)/gi, "<\\/$1");
 
 function build() {
-  const modules = ["src/gm.js", "src/notate.js", "src/csvmidi.js"]
+  const modules = ["src/gm.js", "src/notate.js", "src/csvmidi.js", "src/zip.js"]
     .map(f => `// ---- ${f} ----\n` + read(f).replace(/^import .*$/gm, "").replace(/^export /gm, ""))
     .join("\n");
   const songs = readdirSync(new URL("songs/", root)).filter(f => f.endsWith(".txt")).sort()
     .map(f => ({ id: f.replace(/\.txt$/, "").replace(/^\d+-/, ""), text: read("songs/" + f) }));
   const html = read("web/index.html")
     .replace("/*MODULES*/", () => safe(modules))
+    .replace("/*APP*/", () => safe(read("web/app.js")))
     .replace("/*SONGS*/", () => safe(JSON.stringify(songs)))
     .replace("/*GUIDE*/", () => safe(JSON.stringify(read("docs/notation.txt"))));
   mkdirSync(new URL("dist/", root), { recursive: true });

@@ -51,6 +51,23 @@ node src/cli.js some.csv -o some.mid               # CSV straight to MIDI, like 
 
 `npm link` makes it available as `da-dun`.
 
+## Inside a claude.ai artifact
+
+Published as a claude.ai artifact (with the `db`, `user` and `downloads`
+capabilities), the page also syncs sketches to the artifact's database, so you
+and Claude share one working copy:
+
+- each sketch, and each edited example, is a document in your private
+  collection `data/users/<you>/`: `sk-<id>` for sketches, `draft-<example>` for
+  examples, with fields `type` (`"sketch"` or `"draft"`), `example` (drafts
+  only), `text`, `title`, `updated` and `by` (`"page"` or `"claude"`)
+- Claude can read your sketches from the chat and write new versions; the open
+  page picks them up live, and asks before replacing text you're editing
+- the Save buttons go through the platform's download prompt; MIDI arrives as a
+  `.zip` because artifacts can't download `.mid` files directly
+
+Opened from a file, the page simply uses your browser's local storage.
+
 ## The notation
 
 See [docs/notation.txt](docs/notation.txt) (also shown in the page's
@@ -74,8 +91,10 @@ are borrowed from [LilyPond](https://lilypond.org/).
 src/gm.js          General MIDI instrument and drum names, short aliases
 src/notate.js      notation -> CSV
 src/csvmidi.js     CSV -> MIDI bytes (subset of fourmilab csvmidi)
+src/zip.js         tiny ZIP writer (for hosts that won't download .mid)
 src/cli.js         command line
-web/index.html     editor page template (build.js inlines src/ into it)
+web/index.html     editor page template; build.js inlines src/ and web/app.js
+web/app.js         editor logic: storage, sync, playback, saving
 docs/notation.txt  notation guide
 songs/             example songs, shown in the page's menu (number prefix = order)
 perl/              the original Perl implementation, kept as the reference

@@ -48,3 +48,15 @@ test("sharps are notes, not comments", () => {
   const notes = csv.split("\n").filter(l => l.includes("Note_on_c")).map(l => Number(l.split(", ")[4]));
   assert.deepEqual(notes, [61, 62, 63]);
 });
+
+test("zip: CRC-32 and a valid stored archive", async () => {
+  const { crc32, makeZip } = await import("../src/zip.js");
+  assert.equal(crc32(new TextEncoder().encode("123456789")), 0xCBF43926);
+  const mid = read("test/expected/01-our-piece.mid");
+  const z = makeZip([{ name: "our-piece.mid", data: new Uint8Array(mid) }]);
+  const dv = new DataView(z.buffer);
+  assert.equal(dv.getUint32(0, true), 0x04034B50);              // local file header
+  assert.equal(dv.getUint32(14, true), crc32(mid));
+  assert.equal(dv.getUint32(z.length - 22, true), 0x06054B50);  // end of central directory
+  assert.deepEqual(Buffer.from(z.subarray(30 + 13, 30 + 13 + mid.length)), mid);
+});

@@ -49,6 +49,9 @@ midi-player { display: block; width: 100%; margin-bottom: 10px; }
 .tabs button { border: 0; background: transparent; color: var(--muted); font-weight: 500; }
 .tabs button[aria-selected="true"] { background: var(--sel); color: var(--ink); }
 pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 420px; font: 0.82rem/1.55 var(--mono); margin: 0; }
+.banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 0.9rem; }
+.banner[hidden] { display: none; }
+.banner span { flex: 1; min-width: 12em; }
 .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
 kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 </style>
@@ -64,7 +67,8 @@ kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4p
     <button class="primary" id="play">Play from start</button>
   </div>
   <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Notation"></textarea>
-  <p class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays from the start. Edits are saved in this browser as you type.</p>
+  <div class="banner" id="banner" hidden role="status"><span id="banner-text"></span><button id="banner-load" hidden>Load it</button><button id="banner-keep" hidden>Keep mine</button><button id="banner-close">OK</button></div>
+  <p class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays from the start. <span id="sync">Edits are saved in this browser as you type.</span></p>
   <div class="status" id="status" aria-live="polite"></div>
 
   <midi-player id="player" visualizer="#viz"></midi-player>
@@ -91,159 +95,7 @@ kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4p
 "use strict";
 /*MODULES*/
 
-// ---- app ----
-const EXAMPLES = /*SONGS*/;
-const GUIDE = /*GUIDE*/;
-const NEW_SKETCH = "title New sketch\ntempo 100\ntime 4/4\n\npiano: c4 d e f | g1 |\n";
-const $ = id => document.getElementById(id);
-const editor = $("editor"), player = $("player"), viz = $("viz"), sel = $("song");
-
-const store = {
-  get(k) { try { return JSON.parse(localStorage.getItem("sketchbook:" + k)); } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem("sketchbook:" + k, JSON.stringify(v)); } catch (e) {} },
-  del(k) { try { localStorage.removeItem("sketchbook:" + k); } catch (e) {} },
-};
-let sketches = store.get("sketches") || [];          // [{id, text}]
-const titleOf = text => (text.match(/^\s*title\s+(.+)$/im) || [, "Untitled"])[1].trim();
-
-function entries() {
-  return [
-    ...EXAMPLES.map(e => ({ key: "ex:" + e.id, original: e.text, text: store.get("draft:" + e.id) ?? e.text, example: e.id })),
-    ...sketches.map(s => ({ key: "sk:" + s.id, text: s.text, sketch: s.id })),
-  ];
-}
-let current = null, latest = null, pending = false, view = "csv";
-
-function fillMenu(selectKey) {
-  sel.innerHTML = "";
-  const groups = [["Examples", e => e.example], ["My sketches", e => e.sketch]];
-  const all = entries();
-  for (const [label, test] of groups) {
-    const items = all.filter(test);
-    if (!items.length) continue;
-    const og = document.createElement("optgroup"); og.label = label;
-    for (const e of items) og.appendChild(new Option(titleOf(e.text), e.key));
-    sel.appendChild(og);
-  }
-  sel.value = selectKey;
-}
-function open(key) {
-  current = entries().find(e => e.key === key) || entries()[0];
-  store.set("last", current.key);
-  editor.value = current.text;
-  $("revert").hidden = !current.example;
-  $("delete").hidden = !current.sketch;
-  fillMenu(current.key);
-  compile();
-}
-function save() {
-  const text = editor.value;
-  if (current.example) {
-    if (text === current.original) store.del("draft:" + current.example); else store.set("draft:" + current.example, text);
-  } else {
-    const s = sketches.find(x => x.id === current.sketch); if (s) s.text = text; store.set("sketches", sketches);
-  }
-  current.text = text;
-  const opt = sel.querySelector(`option[value="${current.key}"]`);
-  if (opt) opt.textContent = titleOf(text);
-}
-
-// ---- compile: notation -> CSV -> MIDI -> player ----
-function lineButton(w) {
-  const li = document.createElement("li"), b = document.createElement("button");
-  b.textContent = (w.line ? `Line ${w.line}: ` : "") + w.message;
-  if (w.line) b.onclick = () => gotoLine(w.line);
-  li.appendChild(b); return li;
-}
-function compile() {
-  const st = $("status"); st.innerHTML = "";
-  try {
-    const r = notate(editor.value);
-    const m = csvToMidi(r.csv);
-    latest = { csv: r.csv, bytes: m.bytes, title: r.title, ns: null };
-    if (window.core) latest.ns = core.midiToSequenceProto(m.bytes);
-    const ws = [...r.warnings, ...m.warnings];
-    const bars = Math.ceil(r.ticks / r.barTicks);
-    const ok = document.createElement("span"); ok.className = "ok";
-    ok.textContent = `${bars} bar${bars === 1 ? "" : "s"}, ${r.notes} note${r.notes === 1 ? "" : "s"}` +
-      (ws.length ? `, ${ws.length} warning${ws.length === 1 ? "" : "s"}:` : ". All good.");
-    st.appendChild(ok);
-    if (ws.length) { const ul = document.createElement("ul"); ws.forEach(w => ul.appendChild(lineButton(w))); st.appendChild(ul); }
-    if (!window.core) st.insertAdjacentHTML("beforeend", "<div class=\"err\">The player scripts didn’t load, so playback is off. Check your internet connection and reload.</div>");
-    showText();
-    if (player.playing) pending = true; else load();
-  } catch (e) {
-    const err = document.createElement("div"); err.className = "err";
-    err.textContent = e.message; st.appendChild(err);
-    if (e.line) { const ul = document.createElement("ul"); ul.appendChild(lineButton({ line: e.line, message: "go to the problem" })); st.appendChild(ul); }
-  }
-}
-function load() {
-  pending = false;
-  if (latest && latest.ns) { player.noteSequence = latest.ns; viz.noteSequence = latest.ns; }
-}
-function playFromStart() {
-  compile();
-  if (!latest || !latest.ns) return;
-  try { if (window.Tone) Tone.start(); } catch (e) {}
-  if (player.playing) player.stop();
-  load();
-  setTimeout(() => player.start(), 0);
-}
-player.addEventListener("stop", () => { if (pending) load(); });
-
-function gotoLine(n) {
-  const lines = editor.value.split("\n");
-  const start = lines.slice(0, n - 1).reduce((a, l) => a + l.length + 1, 0);
-  editor.focus();
-  editor.setSelectionRange(start, start + (lines[n - 1] || "").length);
-  const lh = parseFloat(getComputedStyle(editor).lineHeight) || 20;
-  editor.scrollTop = Math.max(0, (n - 3) * lh);
-}
-function showText() { $("text").textContent = view === "guide" ? GUIDE : (latest ? latest.csv : ""); }
-
-// ---- events ----
-let timer = 0;
-editor.addEventListener("input", () => { save(); clearTimeout(timer); timer = setTimeout(compile, 300); });
-editor.addEventListener("keydown", e => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); playFromStart(); }
-  else if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); editor.setRangeText("  ", editor.selectionStart, editor.selectionEnd, "end"); editor.dispatchEvent(new Event("input")); }
-});
-document.addEventListener("pointerdown", () => { try { if (window.Tone) Tone.start(); } catch (e) {} }, { capture: true });
-$("play").onclick = playFromStart;
-sel.onchange = () => { if (player.playing) player.stop(); open(sel.value); };
-$("new").onclick = () => {
-  const id = Date.now().toString(36);
-  sketches.push({ id, text: NEW_SKETCH }); store.set("sketches", sketches); open("sk:" + id);
-  editor.focus();
-};
-$("revert").onclick = () => {
-  if (!current.example || editor.value === current.original) return;
-  if (!confirm("Throw away your edits to this example?")) return;
-  store.del("draft:" + current.example); open(current.key);
-};
-$("delete").onclick = () => {
-  if (!current.sketch || !confirm(`Delete “${titleOf(editor.value)}”?`)) return;
-  sketches = sketches.filter(s => s.id !== current.sketch); store.set("sketches", sketches); open(entries()[0].key);
-};
-document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
-  view = b.dataset.show;
-  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
-  showText();
-});
-document.querySelectorAll("[data-save]").forEach(b => b.onclick = () => {
-  if (!latest && b.dataset.save !== "txt") return;
-  const kind = b.dataset.save;
-  const name = (titleOf(editor.value).replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "sketch").toLowerCase();
-  const blob = kind === "mid" ? new Blob([latest.bytes], { type: "audio/midi" })
-             : new Blob([kind === "csv" ? latest.csv : editor.value], { type: "text/plain" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = `${name}.${kind}`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-});
-
-open(store.get("last") || "ex:" + EXAMPLES[0].id);
+/*APP*/
 })();
 </script>
 </body>
