@@ -1,4 +1,4 @@
-dist/
 node_modules/
+dist/
 *.mid
-!test/expected/*.mid
+!core/test/expected/*.mid

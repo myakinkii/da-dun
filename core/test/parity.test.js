@@ -9,11 +9,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { notate, NotationError } from "../src/notate.js";
 import { csvToMidi } from "../src/csvmidi.js";
 
-const root = new URL("../", import.meta.url);
+const root = new URL("../", import.meta.url);           // core/
 const read = p => readFileSync(new URL(p, root));
 const list = dir => readdirSync(new URL(dir, root)).filter(f => f.endsWith(".txt")).map(f => [dir, f.slice(0, -4)]);
 
-for (const [dir, name] of [...list("songs/"), ...list("test/cases/")]) {
+for (const [dir, name] of [...list("../songs/"), ...list("test/cases/")]) {
   test(`${name}: notation -> CSV matches notate.pl`, () => {
     const { csv } = notate(read(`${dir}${name}.txt`).toString("utf8"));
     assert.equal(csv, read(`test/expected/${name}.csv`).toString("utf8"));

@@ -15,10 +15,10 @@
 2, 4450, Note_off_c, 0, 64, 0
 2, 4480, Note_on_c, 0, 66, 82
 2, 4610, Note_off_c, 0, 66, 0
-2, 4640, Note_on_c, 0, 68, 82
-2, 4770, Note_off_c, 0, 68, 0
-2, 4800, Note_on_c, 0, 69, 82
-2, 5250, Note_off_c, 0, 69, 0
+2, 4640, Note_on_c, 0, 69, 82
+2, 4770, Note_off_c, 0, 69, 0
+2, 4800, Note_on_c, 0, 71, 82
+2, 5250, Note_off_c, 0, 71, 0
 2, 5280, Note_on_c, 0, 71, 82
 2, 5410, Note_off_c, 0, 71, 0
 2, 5440, Note_on_c, 0, 73, 82
@@ -26,10 +26,10 @@
 2, 5600, Note_on_c, 0, 71, 82
 2, 5730, Note_off_c, 0, 71, 0
 2, 5760, Note_on_c, 0, 69, 82
-2, 5970, Note_off_c, 0, 69, 0
-2, 6000, Note_on_c, 0, 68, 82
-2, 6210, Note_off_c, 0, 68, 0
-2, 6240, Note_on_c, 0, 69, 82
-2, 7650, Note_off_c, 0, 69, 0
-2, 7650, End_track
+2, 5890, Note_off_c, 0, 69, 0
+2, 5920, Note_on_c, 0, 68, 82
+2, 6050, Note_off_c, 0, 68, 0
+2, 6080, Note_on_c, 0, 64, 82
+2, 7170, Note_off_c, 0, 64, 0
+2, 7170, End_track
 0, 0, End_of_file

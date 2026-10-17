@@ -1,0 +1,3588 @@
+From 8c6e977abb7e788d9fe357471c4a90e49084afbc Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 17 Oct 2026 23:17:28 +0000
+Subject: [PATCH] Move to an npm workspace: dependency-free core + Vite/Vue web
+ app with our own player
+
+- core/: notate, csvmidi, hum, zip, gm, cli and tests, moved from src/ and
+  test/; new song.js turns CSV into timed notes (tempo map, bar and beat)
+- web/: Vite + Vue editor; same features and storage format as before
+  (artifact sync, hum box with history, downloads)
+- our own player on Tone.js (synth presets per GM family, synthesized drum
+  kit), replacing html-midi-player/Magenta; injectable Tone for tests
+- clickable SVG piano roll: click a note to play from it, click anywhere to
+  move the playhead, bar numbers, note names on hover
+- one self-contained build (vite-plugin-singlefile): no CDN at runtime, so
+  the same dist/index.html works from disk and as the claude.ai artifact
+- tests: core 28, web player 5
+---
+ .gitignore                                    |    4 +-
+ README.md                                     |   76 +-
+ build.js                                      |   35 -
+ core/package.json                             |   13 +
+ {src => core/src}/cli.js                      |    0
+ {src => core/src}/csvmidi.js                  |    2 +-
+ {src => core/src}/gm.js                       |    0
+ {src => core/src}/hum.js                      |    0
+ core/src/index.js                             |    7 +
+ {src => core/src}/notate.js                   |    0
+ core/src/song.js                              |   82 ++
+ {src => core/src}/zip.js                      |    0
+ {test => core/test}/cases/drums-and-parts.txt |    0
+ {test => core/test}/cases/rhythm.txt          |    0
+ {test => core/test}/cases/scale-chords.txt    |    0
+ {test => core/test}/cases/warnings.txt        |    0
+ {test => core/test}/csv/all-records.csv       |    0
+ {test => core/test}/expected/01-our-piece.csv |    0
+ {test => core/test}/expected/01-our-piece.mid |  Bin
+ .../test}/expected/02-beethoven5.csv          |    0
+ .../test}/expected/02-beethoven5.mid          |  Bin
+ .../test}/expected/03-rock-groove.csv         |    0
+ .../test}/expected/03-rock-groove.mid         |  Bin
+ {test => core/test}/expected/all-records.mid  |  Bin
+ .../test}/expected/drums-and-parts.csv        |    0
+ .../test}/expected/drums-and-parts.mid        |  Bin
+ {test => core/test}/expected/rhythm.csv       |    0
+ {test => core/test}/expected/rhythm.mid       |  Bin
+ {test => core/test}/expected/scale-chords.csv |    0
+ {test => core/test}/expected/scale-chords.mid |  Bin
+ {test => core/test}/expected/warnings.csv     |    0
+ {test => core/test}/expected/warnings.mid     |  Bin
+ {test => core/test}/hum.test.js               |    2 +-
+ {test => core/test}/make-fixtures.sh          |    4 +-
+ {test => core/test}/parity.test.js            |    4 +-
+ core/test/song.test.js                        |   49 +
+ package-lock.json                             | 1197 +++++++++++++++++
+ package.json                                  |   26 +-
+ web/app.js                                    |  466 -------
+ web/index.html                                |  132 +-
+ web/package.json                              |   22 +
+ web/src/App.vue                               |  131 ++
+ web/src/claude.js                             |   13 +
+ web/src/components/HumBox.vue                 |   72 +
+ web/src/components/PianoRoll.vue              |   87 ++
+ web/src/main.js                               |    5 +
+ web/src/player.js                             |  158 +++
+ web/src/sketchbook.js                         |  353 +++++
+ web/src/style.css                             |   71 +
+ web/test/player.test.js                       |   84 ++
+ web/vite.config.js                            |   10 +
+ 51 files changed, 2420 insertions(+), 685 deletions(-)
+ delete mode 100644 build.js
+ create mode 100644 core/package.json
+ rename {src => core/src}/cli.js (100%)
+ rename {src => core/src}/csvmidi.js (99%)
+ rename {src => core/src}/gm.js (100%)
+ rename {src => core/src}/hum.js (100%)
+ create mode 100644 core/src/index.js
+ rename {src => core/src}/notate.js (100%)
+ create mode 100644 core/src/song.js
+ rename {src => core/src}/zip.js (100%)
+ rename {test => core/test}/cases/drums-and-parts.txt (100%)
+ rename {test => core/test}/cases/rhythm.txt (100%)
+ rename {test => core/test}/cases/scale-chords.txt (100%)
+ rename {test => core/test}/cases/warnings.txt (100%)
+ rename {test => core/test}/csv/all-records.csv (100%)
+ rename {test => core/test}/expected/01-our-piece.csv (100%)
+ rename {test => core/test}/expected/01-our-piece.mid (100%)
+ rename {test => core/test}/expected/02-beethoven5.csv (100%)
+ rename {test => core/test}/expected/02-beethoven5.mid (100%)
+ rename {test => core/test}/expected/03-rock-groove.csv (100%)
+ rename {test => core/test}/expected/03-rock-groove.mid (100%)
+ rename {test => core/test}/expected/all-records.mid (100%)
+ rename {test => core/test}/expected/drums-and-parts.csv (100%)
+ rename {test => core/test}/expected/drums-and-parts.mid (100%)
+ rename {test => core/test}/expected/rhythm.csv (100%)
+ rename {test => core/test}/expected/rhythm.mid (100%)
+ rename {test => core/test}/expected/scale-chords.csv (100%)
+ rename {test => core/test}/expected/scale-chords.mid (100%)
+ rename {test => core/test}/expected/warnings.csv (100%)
+ rename {test => core/test}/expected/warnings.mid (100%)
+ rename {test => core/test}/hum.test.js (96%)
+ rename {test => core/test}/make-fixtures.sh (75%)
+ rename {test => core/test}/parity.test.js (95%)
+ create mode 100644 core/test/song.test.js
+ create mode 100644 package-lock.json
+ delete mode 100644 web/app.js
+ create mode 100644 web/package.json
+ create mode 100644 web/src/App.vue
+ create mode 100644 web/src/claude.js
+ create mode 100644 web/src/components/HumBox.vue
+ create mode 100644 web/src/components/PianoRoll.vue
+ create mode 100644 web/src/main.js
+ create mode 100644 web/src/player.js
+ create mode 100644 web/src/sketchbook.js
+ create mode 100644 web/src/style.css
+ create mode 100644 web/test/player.test.js
+ create mode 100644 web/vite.config.js
+
+diff --git a/.gitignore b/.gitignore
+index 756b573..b209b2f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,4 +1,4 @@
+-dist/
+ node_modules/
++dist/
+ *.mid
+-!test/expected/*.mid
++!core/test/expected/*.mid
+diff --git a/README.md b/README.md
+index 3baa35b..91e34ab 100644
+--- a/README.md
++++ b/README.md
+@@ -16,7 +16,8 @@ piano: a'4 R | e R | r4 e8t f# g# a4 b8t c# b | a8 g# a2. |
+ The pipeline keeps CSV as a real, inspectable middle step:
+ 
+ ```
+-notation ──[src/notate.js]──▶ midicsv CSV ──[src/csvmidi.js]──▶ MIDI file ──▶ player
++notation ──[core/src/notate.js]──▶ midicsv CSV ──[core/src/csvmidi.js]──▶ MIDI file
++                                              └──[core/src/song.js]──▶ player, piano roll
+ ```
+ 
+ The CSV format is the one from John Walker's
+@@ -26,30 +27,35 @@ record types we support.
+ 
+ ## Quick start
+ 
+-No dependencies; Node 18 or newer.
++Node 20.19+ (or 22.12+). The repository is an npm workspace with two packages:
++`core` (no dependencies) and `web` (Vue, Vite, Tone.js).
+ 
+ ```sh
+-npm run build        # writes dist/sketchbook.html
+-npm run watch        # same, rebuilding on every change
+-npm test             # parity tests (see below)
++npm install
++npm run dev          # editor at http://localhost:5173, with hot reload
++npm run build        # one self-contained file: dist/index.html
++npm test             # core parity tests + player tests
+ ```
+ 
+-Open `dist/sketchbook.html` in a browser: type in the editor, press
+-**Ctrl+Enter** (or **Cmd+Enter**) to play from the start. Warnings show up as you
+-type; click one to jump to its line. Edits and new sketches are saved in your
+-browser's local storage. The page needs internet access once to load the player
+-scripts from jsDelivr; everything else is inlined.
++`dist/index.html` has everything inlined (no CDN), so it works opened straight
++from disk and is also what gets published as the claude.ai artifact.
++
++In the editor, press **Ctrl+Enter** (or **Cmd+Enter**) to play from the start
++and **Space** to play and stop. Warnings show up as you type; click one to jump
++to its line. In the piano roll, click a note to play from that note, or click
++anywhere to move the playhead. Edits and new sketches are saved in your
++browser's local storage.
+ 
+ ### Command line
+ 
+ ```sh
+-node src/cli.js songs/01-our-piece.txt              # writes songs/01-our-piece.mid
+-node src/cli.js song.txt -o out.mid
+-node src/cli.js song.txt --csv                     # print the CSV instead
+-node src/cli.js some.csv -o some.mid               # CSV straight to MIDI, like csvmidi
++node core/src/cli.js songs/01-our-piece.txt          # writes songs/01-our-piece.mid
++node core/src/cli.js song.txt -o out.mid
++node core/src/cli.js song.txt --csv                  # print the CSV instead
++node core/src/cli.js some.csv -o some.mid            # CSV straight to MIDI, like csvmidi
+ ```
+ 
+-`npm link` makes it available as `da-dun`.
++`npm link -w core` makes it available as `da-dun`.
+ 
+ ## Inside a claude.ai artifact
+ 
+@@ -76,7 +82,7 @@ and Claude writes it into the sketch. You can play the proposal, use it (with
+ Undo), or discard it. It uses the artifact `sample` capability, so it runs on
+ the viewer's own Claude account and asks for permission the first time.
+ 
+-All the logic is in `src/hum.js` and doesn't depend on the page or on a
++All the logic is in `core/src/hum.js` and doesn't depend on the page or on a
+ particular model: give it an `ask(prompt)` function that returns the model's
+ reply parsed as JSON. It builds the prompt (rules for reading da-duns, the
+ notation guide, the current sketch and the request), checks the answer with
+@@ -85,7 +91,7 @@ with the Anthropic API:
+ 
+ ```js
+ import { readFileSync } from "node:fs";
+-import { hum } from "./src/hum.js";
++import { hum } from "@da-dun/core";   // or "./core/src/hum.js"
+ 
+ const ask = async prompt => {
+   const res = await fetch("https://api.anthropic.com/v1/messages", {
+@@ -127,18 +133,21 @@ are borrowed from [LilyPond](https://lilypond.org/).
+ ## Layout
+ 
+ ```
+-src/gm.js          General MIDI instrument and drum names, short aliases
+-src/notate.js      notation -> CSV
+-src/csvmidi.js     CSV -> MIDI bytes (subset of fourmilab csvmidi)
+-src/zip.js         tiny ZIP writer (for hosts that won't download .mid)
+-src/hum.js         the hum box: prompt, answer checking, repair round (works with any LLM)
+-src/cli.js         command line
+-web/index.html     editor page template; build.js inlines src/ and web/app.js
+-web/app.js         editor logic: storage, sync, playback, saving
+-docs/notation.txt  notation guide
+-songs/             example songs, shown in the page's menu (number prefix = order)
+-perl/              the original Perl implementation, kept as the reference
+-test/              parity tests and fixtures
++core/src/notate.js     notation -> CSV
++core/src/csvmidi.js    CSV -> MIDI bytes (subset of fourmilab csvmidi)
++core/src/song.js       CSV -> timed notes, for players and piano rolls
++core/src/hum.js        the hum box: prompt, answer checking, repair round (any LLM)
++core/src/zip.js        tiny ZIP writer (for hosts that won't download .mid)
++core/src/gm.js         General MIDI instrument and drum names, short aliases
++core/src/cli.js        command line
++core/test/             parity tests and fixtures
++web/src/App.vue        the editor page
++web/src/sketchbook.js  app state: storage and sync, compiling, hum box, saving
++web/src/player.js      our player: Tone.js synths and a synthesized drum kit
++web/src/components/    PianoRoll.vue (clickable), HumBox.vue
++docs/notation.txt      notation guide (shown in the page)
++songs/                 example songs, shown in the page's menu (number prefix = order)
++perl/                  the original Perl implementation, kept as the reference
+ ```
+ 
+ ## Parity tests
+@@ -148,7 +157,7 @@ The JavaScript is held to the reference tools exactly:
+ - notation to CSV must be identical to `perl/notate.pl`
+ - CSV to MIDI must be byte-identical to fourmilab's `csvmidi`
+ 
+-The expected outputs live in `test/expected/`. After changing the notation,
++The expected outputs live in `core/test/expected/`. After changing the notation,
+ update `perl/notate.pl` to match and run `npm run fixtures` (needs `perl` and
+ `csvmidi`; on Debian/Ubuntu: `apt install midicsv`) to regenerate them.
+ 
+@@ -156,8 +165,11 @@ update `perl/notate.pl` to match and run `npm run fixtures` (needs `perl` and
+ 
+ - [midicsv / csvmidi](https://www.fourmilab.ch/webtools/midicsv/) by John Walker, public domain:
+   the CSV format and the reference encoder
+-- [html-midi-player](https://github.com/cifkao/html-midi-player) by Ondřej Cífka (BSD-2-Clause)
+-  and [Magenta.js](https://github.com/magenta/magenta-js): playback and piano roll
++- [Tone.js](https://tonejs.github.io/) (MIT): audio scheduling and synths
++- [Vue](https://vuejs.org/) and [Vite](https://vite.dev/) (MIT), with
++  [vite-plugin-singlefile](https://github.com/richardtallent/vite-plugin-singlefile) (MIT)
++- [html-midi-player](https://github.com/cifkao/html-midi-player) by Ondřej Cífka: the player in
++  the first versions
+ - [LilyPond](https://lilypond.org/): inspiration for the note syntax
+ 
+ ## License
+diff --git a/build.js b/build.js
+deleted file mode 100644
+index 351fc54..0000000
+--- a/build.js
++++ /dev/null
+@@ -1,35 +0,0 @@
+-// Bundles the web editor into one self-contained HTML file: dist/sketchbook.html
+-//   node build.js            build once
+-//   node build.js --watch    rebuild when src/, web/, docs/ or songs/ change
+-// The page loads only the player scripts from a CDN; everything else is inlined,
+-// so the file can be opened straight from disk.
+-
+-import { readFileSync, writeFileSync, readdirSync, mkdirSync, watch } from "node:fs";
+-
+-const root = new URL("./", import.meta.url);
+-const read = p => readFileSync(new URL(p, root), "utf8");
+-const safe = s => s.replace(/<\/(script)/gi, "<\\/$1");
+-
+-function build() {
+-  const modules = ["src/gm.js", "src/notate.js", "src/csvmidi.js", "src/zip.js", "src/hum.js"]
+-    .map(f => `// ---- ${f} ----\n` + read(f).replace(/^import .*$/gm, "").replace(/^export /gm, ""))
+-    .join("\n");
+-  const songs = readdirSync(new URL("songs/", root)).filter(f => f.endsWith(".txt")).sort()
+-    .map(f => ({ id: f.replace(/\.txt$/, "").replace(/^\d+-/, ""), text: read("songs/" + f) }));
+-  const html = read("web/index.html")
+-    .replace("/*MODULES*/", () => safe(modules))
+-    .replace("/*APP*/", () => safe(read("web/app.js")))
+-    .replace("/*SONGS*/", () => safe(JSON.stringify(songs)))
+-    .replace("/*GUIDE*/", () => safe(JSON.stringify(read("docs/notation.txt"))));
+-  mkdirSync(new URL("dist/", root), { recursive: true });
+-  writeFileSync(new URL("dist/sketchbook.html", root), html);
+-  console.log(`built dist/sketchbook.html (${songs.length} songs, ${Math.round(html.length / 1024)} KB)`);
+-}
+-
+-build();
+-if (process.argv.includes("--watch")) {
+-  let t = 0;
+-  const again = () => { clearTimeout(t); t = setTimeout(() => { try { build(); } catch (e) { console.error(e.message); } }, 100); };
+-  for (const d of ["src/", "web/", "docs/", "songs/"]) watch(new URL(d, root), { recursive: true }, again);
+-  console.log("watching for changes...");
+-}
+diff --git a/core/package.json b/core/package.json
+new file mode 100644
+index 0000000..d6f6ed3
+--- /dev/null
++++ b/core/package.json
+@@ -0,0 +1,13 @@
++{
++  "name": "@da-dun/core",
++  "version": "0.2.0",
++  "description": "da-dun core: text notation -> midicsv CSV -> MIDI, song timing, and the hum box logic. No dependencies.",
++  "type": "module",
++  "license": "MIT",
++  "exports": { ".": "./src/index.js" },
++  "bin": { "da-dun": "src/cli.js" },
++  "scripts": {
++    "test": "node --test",
++    "fixtures": "sh test/make-fixtures.sh"
++  }
++}
+diff --git a/src/cli.js b/core/src/cli.js
+similarity index 100%
+rename from src/cli.js
+rename to core/src/cli.js
+diff --git a/src/csvmidi.js b/core/src/csvmidi.js
+similarity index 99%
+rename from src/csvmidi.js
+rename to core/src/csvmidi.js
+index 82f462f..dcf842b 100644
+--- a/src/csvmidi.js
++++ b/core/src/csvmidi.js
+@@ -14,7 +14,7 @@ const CHANNEL = {
+ };
+ 
+ /** Split one CSV record into fields. Quoted fields become {bytes}. */
+-function splitRecord(s) {
++export function splitRecord(s) {
+   const fields = [];
+   let i = 0;
+   while (i <= s.length) {
+diff --git a/src/gm.js b/core/src/gm.js
+similarity index 100%
+rename from src/gm.js
+rename to core/src/gm.js
+diff --git a/src/hum.js b/core/src/hum.js
+similarity index 100%
+rename from src/hum.js
+rename to core/src/hum.js
+diff --git a/core/src/index.js b/core/src/index.js
+new file mode 100644
+index 0000000..7e7ff4c
+--- /dev/null
++++ b/core/src/index.js
+@@ -0,0 +1,7 @@
++// @da-dun/core: everything framework-free, usable in the browser and in Node.
++export { notate, NotationError, PPQ } from "./notate.js";
++export { csvToMidi } from "./csvmidi.js";
++export { csvToSong } from "./song.js";
++export { hum, humPrompt, parseHumReply, checkNotation } from "./hum.js";
++export { makeZip, crc32 } from "./zip.js";
++export { GM_PATCHES, GM_DRUMS, GM_DRUM_FIRST, INST_ALIAS, DRUM_ALIAS } from "./gm.js";
+diff --git a/src/notate.js b/core/src/notate.js
+similarity index 100%
+rename from src/notate.js
+rename to core/src/notate.js
+diff --git a/core/src/song.js b/core/src/song.js
+new file mode 100644
+index 0000000..72088ef
+--- /dev/null
++++ b/core/src/song.js
+@@ -0,0 +1,82 @@
++// song.js: midicsv CSV -> a timed note list, for players and piano rolls.
++// Times are in seconds (tempo changes applied); ticks, bar and beat are kept
++// so a UI can say where a note is in musical terms.
++
++import { splitRecord } from "./csvmidi.js";
++
++/**
++ * @typedef {{start: number, end: number, startTick: number, endTick: number,
++ *            bar: number, beat: number, track: number, ch: number,
++ *            note: number, vel: number, prog: number}} SongNote
++ * @typedef {{title: string, ppq: number, timeSig: [number, number], bpm: number,
++ *            barTicks: number, duration: number, notes: SongNote[],
++ *            tickToSec: (tick: number) => number}} Song
++ */
++
++/** Parse midicsv CSV into a Song. Records it doesn't need are skipped. */
++export function csvToSong(csv) {
++  let ppq = 480, title = "", timeSig = null;
++  const tempos = [], recs = [];
++  let order = 0;
++  for (const raw of csv.split(/\r?\n/)) {
++    const s = raw.trim();
++    if (!s || s[0] === "#" || s[0] === ";") continue;
++    const f = splitRecord(s);
++    if (f.length < 3 || typeof f[2] !== "string") continue;
++    const track = Number(f[0]), time = Number(f[1]), type = f[2].toLowerCase();
++    const n = k => Number(f[k]);
++    if (type === "header") ppq = n(5) || 480;
++    else if (type === "tempo") tempos.push([time, n(3)]);
++    else if (type === "time_signature" && !timeSig) timeSig = [n(3), 2 ** n(4)];
++    else if (type === "title_t" && !title && typeof f[3] === "object") title = new TextDecoder().decode(new Uint8Array(f[3].bytes));
++    else if (type === "program_c") recs.push({ time, kind: 0, order: order++, track, ch: n(3), prog: n(4) });
++    else if (type === "note_off_c" || (type === "note_on_c" && n(5) === 0)) recs.push({ time, kind: 1, order: order++, track, ch: n(3), note: n(4) });
++    else if (type === "note_on_c") recs.push({ time, kind: 2, order: order++, track, ch: n(3), note: n(4), vel: n(5) });
++  }
++  timeSig = timeSig || [4, 4];
++  tempos.sort((a, b) => a[0] - b[0]);
++  if (!tempos.length || tempos[0][0] > 0) tempos.unshift([0, 500000]);
++
++  // tempo map: [tick, seconds at that tick, microseconds per quarter]
++  const map = [];
++  for (const [tick, us] of tempos) {
++    const prev = map[map.length - 1];
++    const sec = prev ? prev[1] + (tick - prev[0]) * prev[2] / 1e6 / ppq : 0;
++    map.push([tick, sec, us]);
++  }
++  const tickToSec = tick => {
++    let i = map.length - 1;
++    while (i > 0 && map[i][0] > tick) i--;
++    return map[i][1] + (tick - map[i][0]) * map[i][2] / 1e6 / ppq;
++  };
++
++  const barTicks = Math.round(timeSig[0] * 4 * ppq / timeSig[1]);
++  const beatTicks = barTicks / timeSig[0];
++  recs.sort((a, b) => a.time - b.time || a.kind - b.kind || a.order - b.order);
++  const prog = new Map(), open = new Map(), notes = [];
++  for (const r of recs) {
++    const chKey = r.track + ":" + r.ch;
++    if (r.kind === 0) { prog.set(chKey, r.prog); continue; }
++    const key = chKey + ":" + r.note;
++    if (r.kind === 2) {
++      const note = { startTick: r.time, endTick: null, track: r.track, ch: r.ch, note: r.note, vel: r.vel,
++                     prog: r.ch === 9 ? 0 : (prog.get(chKey) ?? 0),
++                     bar: Math.floor(r.time / barTicks) + 1, beat: Math.floor((r.time % barTicks) / beatTicks) + 1 };
++      if (!open.has(key)) open.set(key, []);
++      open.get(key).push(note);
++      notes.push(note);
++    } else {
++      const q = open.get(key);
++      if (q && q.length) q.shift().endTick = r.time;
++    }
++  }
++  let duration = 0;
++  for (const n of notes) {
++    if (n.endTick === null) n.endTick = n.startTick + ppq / 2;
++    n.start = tickToSec(n.startTick);
++    n.end = Math.max(tickToSec(n.endTick), n.start + 0.02);
++    duration = Math.max(duration, n.end);
++  }
++  notes.sort((a, b) => a.start - b.start || a.note - b.note);
++  return { title, ppq, timeSig, bpm: 60e6 / map[0][2], barTicks, duration, notes, tickToSec };
++}
+diff --git a/src/zip.js b/core/src/zip.js
+similarity index 100%
+rename from src/zip.js
+rename to core/src/zip.js
+diff --git a/test/cases/drums-and-parts.txt b/core/test/cases/drums-and-parts.txt
+similarity index 100%
+rename from test/cases/drums-and-parts.txt
+rename to core/test/cases/drums-and-parts.txt
+diff --git a/test/cases/rhythm.txt b/core/test/cases/rhythm.txt
+similarity index 100%
+rename from test/cases/rhythm.txt
+rename to core/test/cases/rhythm.txt
+diff --git a/test/cases/scale-chords.txt b/core/test/cases/scale-chords.txt
+similarity index 100%
+rename from test/cases/scale-chords.txt
+rename to core/test/cases/scale-chords.txt
+diff --git a/test/cases/warnings.txt b/core/test/cases/warnings.txt
+similarity index 100%
+rename from test/cases/warnings.txt
+rename to core/test/cases/warnings.txt
+diff --git a/test/csv/all-records.csv b/core/test/csv/all-records.csv
+similarity index 100%
+rename from test/csv/all-records.csv
+rename to core/test/csv/all-records.csv
+diff --git a/test/expected/01-our-piece.csv b/core/test/expected/01-our-piece.csv
+similarity index 100%
+rename from test/expected/01-our-piece.csv
+rename to core/test/expected/01-our-piece.csv
+diff --git a/test/expected/01-our-piece.mid b/core/test/expected/01-our-piece.mid
+similarity index 100%
+rename from test/expected/01-our-piece.mid
+rename to core/test/expected/01-our-piece.mid
+diff --git a/test/expected/02-beethoven5.csv b/core/test/expected/02-beethoven5.csv
+similarity index 100%
+rename from test/expected/02-beethoven5.csv
+rename to core/test/expected/02-beethoven5.csv
+diff --git a/test/expected/02-beethoven5.mid b/core/test/expected/02-beethoven5.mid
+similarity index 100%
+rename from test/expected/02-beethoven5.mid
+rename to core/test/expected/02-beethoven5.mid
+diff --git a/test/expected/03-rock-groove.csv b/core/test/expected/03-rock-groove.csv
+similarity index 100%
+rename from test/expected/03-rock-groove.csv
+rename to core/test/expected/03-rock-groove.csv
+diff --git a/test/expected/03-rock-groove.mid b/core/test/expected/03-rock-groove.mid
+similarity index 100%
+rename from test/expected/03-rock-groove.mid
+rename to core/test/expected/03-rock-groove.mid
+diff --git a/test/expected/all-records.mid b/core/test/expected/all-records.mid
+similarity index 100%
+rename from test/expected/all-records.mid
+rename to core/test/expected/all-records.mid
+diff --git a/test/expected/drums-and-parts.csv b/core/test/expected/drums-and-parts.csv
+similarity index 100%
+rename from test/expected/drums-and-parts.csv
+rename to core/test/expected/drums-and-parts.csv
+diff --git a/test/expected/drums-and-parts.mid b/core/test/expected/drums-and-parts.mid
+similarity index 100%
+rename from test/expected/drums-and-parts.mid
+rename to core/test/expected/drums-and-parts.mid
+diff --git a/test/expected/rhythm.csv b/core/test/expected/rhythm.csv
+similarity index 100%
+rename from test/expected/rhythm.csv
+rename to core/test/expected/rhythm.csv
+diff --git a/test/expected/rhythm.mid b/core/test/expected/rhythm.mid
+similarity index 100%
+rename from test/expected/rhythm.mid
+rename to core/test/expected/rhythm.mid
+diff --git a/test/expected/scale-chords.csv b/core/test/expected/scale-chords.csv
+similarity index 100%
+rename from test/expected/scale-chords.csv
+rename to core/test/expected/scale-chords.csv
+diff --git a/test/expected/scale-chords.mid b/core/test/expected/scale-chords.mid
+similarity index 100%
+rename from test/expected/scale-chords.mid
+rename to core/test/expected/scale-chords.mid
+diff --git a/test/expected/warnings.csv b/core/test/expected/warnings.csv
+similarity index 100%
+rename from test/expected/warnings.csv
+rename to core/test/expected/warnings.csv
+diff --git a/test/expected/warnings.mid b/core/test/expected/warnings.mid
+similarity index 100%
+rename from test/expected/warnings.mid
+rename to core/test/expected/warnings.mid
+diff --git a/test/hum.test.js b/core/test/hum.test.js
+similarity index 96%
+rename from test/hum.test.js
+rename to core/test/hum.test.js
+index 94448b3..9b52645 100644
+--- a/test/hum.test.js
++++ b/core/test/hum.test.js
+@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
+ import { readFileSync } from "node:fs";
+ import { hum, humPrompt, parseHumReply, checkNotation } from "../src/hum.js";
+ 
+-const guide = readFileSync(new URL("../docs/notation.txt", import.meta.url), "utf8");
++const guide = readFileSync(new URL("../../docs/notation.txt", import.meta.url), "utf8");
+ const sketch = "title Test\ntempo 96\n\npiano: a'4 R | e R |\n";
+ 
+ test("prompt carries rules, guide, sketch and request", () => {
+diff --git a/test/make-fixtures.sh b/core/test/make-fixtures.sh
+similarity index 75%
+rename from test/make-fixtures.sh
+rename to core/test/make-fixtures.sh
+index 0e1b919..b8fb98d 100644
+--- a/test/make-fixtures.sh
++++ b/core/test/make-fixtures.sh
+@@ -3,9 +3,9 @@
+ # fourmilab's csvmidi (Debian/Ubuntu: apt install midicsv).
+ set -e
+ cd "$(dirname "$0")/.."
+-for f in songs/*.txt test/cases/*.txt; do
++for f in ../songs/*.txt test/cases/*.txt; do
+   n=$(basename "$f" .txt)
+-  perl perl/notate.pl "$f" > "test/expected/$n.csv" 2>/dev/null
++  perl ../perl/notate.pl "$f" > "test/expected/$n.csv" 2>/dev/null
+   csvmidi "test/expected/$n.csv" "test/expected/$n.mid"
+ done
+ csvmidi test/csv/all-records.csv test/expected/all-records.mid
+diff --git a/test/parity.test.js b/core/test/parity.test.js
+similarity index 95%
+rename from test/parity.test.js
+rename to core/test/parity.test.js
+index 7d88c02..1687b44 100644
+--- a/test/parity.test.js
++++ b/core/test/parity.test.js
+@@ -9,11 +9,11 @@ import { readFileSync, readdirSync } from "node:fs";
+ import { notate, NotationError } from "../src/notate.js";
+ import { csvToMidi } from "../src/csvmidi.js";
+ 
+-const root = new URL("../", import.meta.url);
++const root = new URL("../", import.meta.url);           // core/
+ const read = p => readFileSync(new URL(p, root));
+ const list = dir => readdirSync(new URL(dir, root)).filter(f => f.endsWith(".txt")).map(f => [dir, f.slice(0, -4)]);
+ 
+-for (const [dir, name] of [...list("songs/"), ...list("test/cases/")]) {
++for (const [dir, name] of [...list("../songs/"), ...list("test/cases/")]) {
+   test(`${name}: notation -> CSV matches notate.pl`, () => {
+     const { csv } = notate(read(`${dir}${name}.txt`).toString("utf8"));
+     assert.equal(csv, read(`test/expected/${name}.csv`).toString("utf8"));
+diff --git a/core/test/song.test.js b/core/test/song.test.js
+new file mode 100644
+index 0000000..5beadb1
+--- /dev/null
++++ b/core/test/song.test.js
+@@ -0,0 +1,49 @@
++// csvToSong: timing, bars, programs and tempo changes.
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import { notate, csvToSong } from "../src/index.js";
++
++const song = text => csvToSong(notate(text).csv);
++
++test("our piece: timing at 96 BPM, bars and beats", () => {
++  const s = csvToSong(readFileSync(new URL("expected/01-our-piece.csv", import.meta.url), "utf8"));
++  assert.equal(s.title, "Our piece");
++  assert.equal(s.notes.length, 12);
++  assert.equal(Math.round(s.bpm), 96);
++  const [a, e] = s.notes;
++  assert.deepEqual([a.note, a.start, a.bar, a.beat], [69, 0, 1, 1]);
++  assert.deepEqual([e.note, e.start, e.bar, e.beat], [64, 2.5, 2, 1]);   // a 4/4 bar at 96 BPM lasts 2.5 s
++  assert.equal(s.notes[0].prog, 0);
++  assert.ok(Math.abs(s.duration - 9.96) < 0.01, String(s.duration));
++});
++
++test("drums are on channel 9 and programs follow the part", () => {
++  const s = csvToSong(readFileSync(new URL("expected/03-rock-groove.csv", import.meta.url), "utf8"));
++  assert.ok(s.notes.some(n => n.ch === 9 && n.note === 36));
++  assert.ok(s.notes.filter(n => n.ch !== 9).every(n => n.prog === 33));
++});
++
++test("tempo changes are applied", () => {
++  const csv = `0, 0, Header, 1, 1, 480
++1, 0, Start_track
++1, 0, Tempo, 500000
++1, 960, Tempo, 1000000
++1, 0, Note_on_c, 0, 60, 90
++1, 480, Note_off_c, 0, 60, 0
++1, 1440, Note_on_c, 0, 62, 90
++1, 1920, Note_off_c, 0, 62, 0
++1, 1920, End_track
++0, 0, End_of_file`.split("\n").sort((a, b) => Number(a.split(",")[1]) - Number(b.split(",")[1])).join("\n");
++  const s = csvToSong(csv);
++  assert.equal(s.notes[0].start, 0);
++  assert.equal(s.notes[1].start, 2);   // 2 beats at 120 BPM (1 s), then 1 beat at 60 BPM (1 s)
++  assert.equal(s.notes[1].end, 3);
++});
++
++test("tied notes are one long note; chords are simultaneous", () => {
++  const s = song("piano: c2~ c2 | [c e g]1 |");
++  assert.equal(s.notes.length, 4);
++  assert.equal(s.notes[0].endTick, 1920 - 30);   // held through both halves, minus the articulation gap
++  assert.deepEqual(s.notes.slice(1).map(n => [n.note, n.start, n.bar]), [[60, 2, 2], [64, 2, 2], [67, 2, 2]]);
++});
+diff --git a/package-lock.json b/package-lock.json
+new file mode 100644
+index 0000000..46441cd
+--- /dev/null
++++ b/package-lock.json
+@@ -0,0 +1,1197 @@
++{
++  "name": "da-dun",
++  "version": "0.2.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "da-dun",
++      "version": "0.2.0",
++      "license": "MIT",
++      "workspaces": [
++        "core",
++        "web"
++      ],
++      "engines": {
++        "node": ">=20.19"
++      }
++    },
++    "core": {
++      "name": "@da-dun/core",
++      "version": "0.2.0",
++      "license": "MIT",
++      "bin": {
++        "da-dun": "src/cli.js"
++      }
++    },
++    "node_modules/@babel/helper-string-parser": {
++      "version": "7.29.7",
++      "resolved": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.29.7.tgz",
++      "integrity": "sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6.9.0"
++      }
++    },
++    "node_modules/@babel/helper-validator-identifier": {
++      "version": "7.29.7",
++      "resolved": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz",
++      "integrity": "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6.9.0"
++      }
++    },
++    "node_modules/@babel/parser": {
++      "version": "7.29.9",
++      "resolved": "https://registry.npmjs.org/@babel/parser/-/parser-7.29.9.tgz",
++      "integrity": "sha512-CjXrNHTnvqBVqHgdBysY3vk2T8tpJHb5/RMeHJBTyVa9xgugCB0CJTx/3oO8RV2QRQP391RWpB7D6hLjm8V9uA==",
++      "license": "MIT",
++      "dependencies": {
++        "@babel/types": "^7.29.8"
++      },
++      "bin": {
++        "parser": "bin/babel-parser.js"
++      },
++      "engines": {
++        "node": ">=6.0.0"
++      }
++    },
++    "node_modules/@babel/runtime": {
++      "version": "7.29.10",
++      "resolved": "https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.10.tgz",
++      "integrity": "sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6.9.0"
++      }
++    },
++    "node_modules/@babel/types": {
++      "version": "7.29.8",
++      "resolved": "https://registry.npmjs.org/@babel/types/-/types-7.29.8.tgz",
++      "integrity": "sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==",
++      "license": "MIT",
++      "dependencies": {
++        "@babel/helper-string-parser": "^7.29.7",
++        "@babel/helper-validator-identifier": "^7.29.7"
++      },
++      "engines": {
++        "node": ">=6.9.0"
++      }
++    },
++    "node_modules/@da-dun/core": {
++      "resolved": "core",
++      "link": true
++    },
++    "node_modules/@da-dun/web": {
++      "resolved": "web",
++      "link": true
++    },
++    "node_modules/@jridgewell/sourcemap-codec": {
++      "version": "1.6.0",
++      "resolved": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz",
++      "integrity": "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==",
++      "license": "MIT"
++    },
++    "node_modules/@oxc-project/types": {
++      "version": "0.154.0",
++      "resolved": "https://registry.npmjs.org/@oxc-project/types/-/types-0.154.0.tgz",
++      "integrity": "sha512-KYOUGQFlLWR+s4QMV2Q9ko38TZm7EdO87Qm7rvZLqk/webse/cDjtyxKhg/47l0byCbs/k46LT8qc4PKjAikzA==",
++      "dev": true,
++      "license": "MIT",
++      "funding": {
++        "url": "https://github.com/sponsors/oxc-project"
++      }
++    },
++    "node_modules/@rolldown/binding-android-arm-eabi": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-android-arm-eabi/-/binding-android-arm-eabi-1.2.14.tgz",
++      "integrity": "sha512-aWR+XKH9+rW7m5fWq/5360J3mHycrx/o6xZM2DQFdJnTMdyP7/WzxPjhtLbVWdKo2y612/4U1bWqb3HQhiF7vg==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-android-arm64": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.2.14.tgz",
++      "integrity": "sha512-QiVxHofl6A8lQU7WAtOUY4QMVZXohxwz7WJJoeh8NBEUyKfIkMRKhYyq8az/1RypNiIXzNTtiS6KwHz0erxYRQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-darwin-arm64": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.2.14.tgz",
++      "integrity": "sha512-lTQOzHuBIooh3jIr5XINQkjPGEuGy+Dsy0meXDr6Sjty0b99kYgGh4uBC/8mJX1T0kC8d6S0aPP1Y+bHkh6aBw==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-darwin-x64": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.2.14.tgz",
++      "integrity": "sha512-hyMKEGatjmBYCs/Q4sbIcL/GqpFEqsX3wc+HYVQ/85A4rxc1o7rPm4DUI4GV4k/h0ITddwFSGpqQunI14GXjTA==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-freebsd-x64": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.2.14.tgz",
++      "integrity": "sha512-u371GbXoVXrEgP20PwzoGNOdAOqAMhzo19JzzY+V4YmmnC+DTOoqdbMu+O+54emM59Mik/UdrtWgcuEDKWRPKA==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "freebsd"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-arm-gnueabihf": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.2.14.tgz",
++      "integrity": "sha512-BqwKsdZQf6EqVWr8fv2MrDYzAvOZ7+NYFSJESRGs87fkseEhs0TU9TXgRJTkZoRRkxTizyEg1LKUXfU3/78uqg==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-arm64-gnu": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.2.14.tgz",
++      "integrity": "sha512-SD9kY8M009x/7s57Z1dgUVlP5+uYBgKQK0Tkr1WIWngrtUJmRCW1RJFMY7QDla2khXhmg2i5Io7MUjcmZNZ/KQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-arm64-musl": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.2.14.tgz",
++      "integrity": "sha512-BJ2CL19M6uuWesMgnqJzgxoI+N+eV7b0A9O9vLV42y+gitC41fNa8KElau1tHVzuLWX5GzEuxMPhAO0tQXQMkg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-ppc64-gnu": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.2.14.tgz",
++      "integrity": "sha512-4+Kl8daPV8NDHaD7mfCcc1pRM+Qg7ab8DyMm5FG5WoZgv4h2i3KFN1CybYBNbQqmuYm7ftJLvmMI1eHYJ22S/Q==",
++      "cpu": [
++        "ppc64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-s390x-gnu": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.2.14.tgz",
++      "integrity": "sha512-V/h8ePq1fKDrmtFMz6xcCN3DKvuvMRrwwD1q0PkBeeo4DpK64biaKvqWGVxqCeYKqeRk7gE7/iKPxLCn08O97A==",
++      "cpu": [
++        "s390x"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-x64-gnu": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.14.tgz",
++      "integrity": "sha512-WxalXzgrLVpKC93xfpaJ3gCXUWzeCr+FRCbDVD2mUAy4L6Vo3lNVz0epUEUpxPWJkLNYUwM4OSIikv36OJ9mLg==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-linux-x64-musl": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.2.14.tgz",
++      "integrity": "sha512-3G3tnAmTpdk9jO3GQtyHXqeFD2SlecfTws/Y3M2mmj9nMBwwuLT4kur8sZKeu7ENUHSpVO3cIsm5A52LEWWwlg==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-openharmony-arm64": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-openharmony-arm64/-/binding-openharmony-arm64-1.2.14.tgz",
++      "integrity": "sha512-qyr5XiNGxm2ytx17vvtcJ9nXn6v1gENETi503bJx3OGwZ1tSonj7BosxbMa/xeAfSl5iS9X6KjEWYXLu6v1L7Q==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openharmony"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-win32-arm64-msvc": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.2.14.tgz",
++      "integrity": "sha512-oA4o5o0S2yB199YyYXDzKUv1Z56Rc+mgOjwm7Z/vJ9Z8igiDPYvoOuDyo6g7AK/ZaF09nPhDKVnGBcYHO11GXA==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/binding-win32-x64-msvc": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.2.14.tgz",
++      "integrity": "sha512-9mE94bf2GZUaR/fUSXCMpBoWkctu421Mi0ORpm4zqfbkjKep7RxzPFa5etcGs5h+2KApoWBOA/hAJa/7saGgEQ==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      }
++    },
++    "node_modules/@rolldown/pluginutils": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
++      "integrity": "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/@vitejs/plugin-vue": {
++      "version": "6.0.9",
++      "resolved": "https://registry.npmjs.org/@vitejs/plugin-vue/-/plugin-vue-6.0.9.tgz",
++      "integrity": "sha512-rD/MORlhaZMlXWW0rEn4FB4wMinWC0z/D7Ye160S5+Rs1mC8ZDAdcDp4SjKfUhG5t8q1ktcPVw4xuTkPRlzrSA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@rolldown/pluginutils": "^1.0.1"
++      },
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      },
++      "peerDependencies": {
++        "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
++        "vue": "^3.2.25"
++      }
++    },
++    "node_modules/@vue/compiler-core": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/compiler-core/-/compiler-core-3.5.43.tgz",
++      "integrity": "sha512-zdiLhnbe1QQqgDT8xZMpNmyqZ3qlI+/Q/FHQco57Kwl/b05HhCzN6eVGN9QU9rbga4CrS0H5SYY8VGHZCt/1Hg==",
++      "license": "MIT",
++      "dependencies": {
++        "@babel/parser": "^7.29.8",
++        "@vue/shared": "3.5.43",
++        "entities": "^7.0.1",
++        "estree-walker": "^2.0.2",
++        "source-map-js": "^1.2.1"
++      }
++    },
++    "node_modules/@vue/compiler-dom": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/compiler-dom/-/compiler-dom-3.5.43.tgz",
++      "integrity": "sha512-PEZoAk3NQmsn/ejMzSOCyTYqwGqczrWm70PuhBKjjv1+TCoQAaO/zOqNwjV+honlNstT5ILxtc+8r8UUfj+iEQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/compiler-core": "3.5.43",
++        "@vue/shared": "3.5.43"
++      }
++    },
++    "node_modules/@vue/compiler-sfc": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/compiler-sfc/-/compiler-sfc-3.5.43.tgz",
++      "integrity": "sha512-FCbrG3XNCRl+js3huuKx4IVHBLTvMkJhVepjbxSPu1gn4yWLaYtGNQdjJGZaMytXB6qb76qQDDmDSLy/vkmleQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@babel/parser": "^7.29.8",
++        "@vue/compiler-core": "3.5.43",
++        "@vue/compiler-dom": "3.5.43",
++        "@vue/compiler-ssr": "3.5.43",
++        "@vue/shared": "3.5.43",
++        "estree-walker": "^2.0.2",
++        "magic-string": "^0.30.21",
++        "postcss": "^8.5.28",
++        "source-map-js": "^1.2.1"
++      }
++    },
++    "node_modules/@vue/compiler-ssr": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/compiler-ssr/-/compiler-ssr-3.5.43.tgz",
++      "integrity": "sha512-GF62orf7KiJX9RqrHNGrYBudsQGD0OhJ5nDs90O8UiDuS40+YMYomiXu6w6EuvtXuRDc3MSNis3EaaSKAVSWpg==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/compiler-dom": "3.5.43",
++        "@vue/shared": "3.5.43"
++      }
++    },
++    "node_modules/@vue/reactivity": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.43.tgz",
++      "integrity": "sha512-G/c9GyOZNI2jVaaS6OX1EF1SSFSv7H0ERqNTl4+DTFMlZmB5eVAB53aLQNam/7NL2NPtaDD7RdVrzf8uJzMuOA==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/shared": "3.5.43"
++      }
++    },
++    "node_modules/@vue/runtime-core": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/runtime-core/-/runtime-core-3.5.43.tgz",
++      "integrity": "sha512-hU6U6VnVhBGQDpvlnnDlIB8ZGJBiOcgk2lh/0InltHiz3D8oSkluvuvY+do1G2H3+udeKFsmaBlgVYP7gXQzEw==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/reactivity": "3.5.43",
++        "@vue/shared": "3.5.43"
++      }
++    },
++    "node_modules/@vue/runtime-dom": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/runtime-dom/-/runtime-dom-3.5.43.tgz",
++      "integrity": "sha512-Bb2Jc0YjjJdMt1SJmb9b2L/IWd3I8lIT9x9eS/xvvP9CiVgna0ffua74xKRmt4/uSJ+0r4iN8ex1jrqkhQGWQw==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/reactivity": "3.5.43",
++        "@vue/runtime-core": "3.5.43",
++        "@vue/shared": "3.5.43",
++        "csstype": "^3.2.3"
++      }
++    },
++    "node_modules/@vue/server-renderer": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/server-renderer/-/server-renderer-3.5.43.tgz",
++      "integrity": "sha512-l2Ygjv9NehV94PSBxNWsAHC0j/eIIKbn92mBuWXAPGLnn6HfJ6MH5ubsd+Nk0YoZ5FRuxWI1P2VSoh+dbPQhCQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/compiler-ssr": "3.5.43",
++        "@vue/runtime-dom": "3.5.43",
++        "@vue/shared": "3.5.43"
++      }
++    },
++    "node_modules/@vue/shared": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/@vue/shared/-/shared-3.5.43.tgz",
++      "integrity": "sha512-uksS7YGMR5NZyr4JNq0Rp+QyLns0ueaz20KwzIPW9R0LH1Vnt4E+XUM29PNseEbf1www2gOuhuDi5AKOIXag9Q==",
++      "license": "MIT"
++    },
++    "node_modules/automation-events": {
++      "version": "7.1.19",
++      "resolved": "https://registry.npmjs.org/automation-events/-/automation-events-7.1.19.tgz",
++      "integrity": "sha512-cD+TLhJTI0q4AI3ktd353lrGZiVa9AchowSDzQzzGjSoYe22js4vlS32VUtWuaulghi1Yq0KYNWKk9wWuGymPA==",
++      "license": "MIT",
++      "dependencies": {
++        "@babel/runtime": "^7.29.2",
++        "tslib": "^2.8.1"
++      },
++      "engines": {
++        "node": ">=18.2.0"
++      }
++    },
++    "node_modules/braces": {
++      "version": "3.0.3",
++      "resolved": "https://registry.npmjs.org/braces/-/braces-3.0.3.tgz",
++      "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "fill-range": "^7.1.1"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/csstype": {
++      "version": "3.2.3",
++      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
++      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
++      "license": "MIT"
++    },
++    "node_modules/detect-libc": {
++      "version": "2.1.2",
++      "resolved": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
++      "integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/entities": {
++      "version": "7.0.1",
++      "resolved": "https://registry.npmjs.org/entities/-/entities-7.0.1.tgz",
++      "integrity": "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==",
++      "license": "BSD-2-Clause",
++      "engines": {
++        "node": ">=0.12"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/entities?sponsor=1"
++      }
++    },
++    "node_modules/estree-walker": {
++      "version": "2.0.2",
++      "resolved": "https://registry.npmjs.org/estree-walker/-/estree-walker-2.0.2.tgz",
++      "integrity": "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w==",
++      "license": "MIT"
++    },
++    "node_modules/fdir": {
++      "version": "6.5.0",
++      "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
++      "integrity": "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=12.0.0"
++      },
++      "peerDependencies": {
++        "picomatch": "^3 || ^4"
++      },
++      "peerDependenciesMeta": {
++        "picomatch": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/fill-range": {
++      "version": "7.1.1",
++      "resolved": "https://registry.npmjs.org/fill-range/-/fill-range-7.1.1.tgz",
++      "integrity": "sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "to-regex-range": "^5.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/fsevents": {
++      "version": "2.3.3",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
++      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
++    "node_modules/is-number": {
++      "version": "7.0.0",
++      "resolved": "https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz",
++      "integrity": "sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.12.0"
++      }
++    },
++    "node_modules/lightningcss": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz",
++      "integrity": "sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==",
++      "dev": true,
++      "license": "MPL-2.0",
++      "dependencies": {
++        "detect-libc": "^2.0.3"
++      },
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      },
++      "optionalDependencies": {
++        "lightningcss-android-arm64": "1.33.0",
++        "lightningcss-darwin-arm64": "1.33.0",
++        "lightningcss-darwin-x64": "1.33.0",
++        "lightningcss-freebsd-x64": "1.33.0",
++        "lightningcss-linux-arm-gnueabihf": "1.33.0",
++        "lightningcss-linux-arm64-gnu": "1.33.0",
++        "lightningcss-linux-arm64-musl": "1.33.0",
++        "lightningcss-linux-x64-gnu": "1.33.0",
++        "lightningcss-linux-x64-musl": "1.33.0",
++        "lightningcss-win32-arm64-msvc": "1.33.0",
++        "lightningcss-win32-x64-msvc": "1.33.0"
++      }
++    },
++    "node_modules/lightningcss-android-arm64": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.33.0.tgz",
++      "integrity": "sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-darwin-arm64": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.33.0.tgz",
++      "integrity": "sha512-Sciaz8eenNTKn9b3t7+xr0ipTp9YxKQY4npwQ3mrRuL0BAVHBLyZxofhaKBAVtzmtRZ/zTyo0/to4B1uWG/Djg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-darwin-x64": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.33.0.tgz",
++      "integrity": "sha512-Z5UPAxzrjlWNNyGy6i65cJzzvgJ5D3T6wMvs+gWpY9d7qRhANrxqAp6LhxIgZhWEw18RfJTGcRxjuLIBr+m8XQ==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-freebsd-x64": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.33.0.tgz",
++      "integrity": "sha512-QQM/Ti/hQajJwCY+RiWuCZ9sdtI/XQk7nDK5vC8kkdwixezOlDgvDx7+RT+QjK6FcFT4MpsuoBnHIo/O3StRRg==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "freebsd"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-linux-arm-gnueabihf": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.33.0.tgz",
++      "integrity": "sha512-N7FVBe6iS24MlM6R/4RBTxGhQheZGs7tiQ9U32UtF75NzP5Q7xWPRqLBCKxlRQRk3rY1jCIPLzx7WzOhuUIRLQ==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-linux-arm64-gnu": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.33.0.tgz",
++      "integrity": "sha512-j2v/itmy4HlNxlc6voKXYgBqNi0Ng2LShg4z7GufpEgs05P+2suBVyi9I6YHq5uoVFx9ETin3eCEhLVyXGQnKg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-linux-arm64-musl": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.33.0.tgz",
++      "integrity": "sha512-yiO5ROMuYQgXbC60yjZU5CYSFZGKXL0HFATXt9mHJn1+zW55oCtMI9NfcVhYLMFDL7gV7oBPon/EmMMGg2OvtQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-linux-x64-gnu": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.33.0.tgz",
++      "integrity": "sha512-ar+Ju7LmcN0Jo4FpL4hpFybwNG9/3A/Br5KW2n2jyODg3MEZXaDYADdemoNS+BDNfMgKvylJLj4S5tyRActuAg==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-linux-x64-musl": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.33.0.tgz",
++      "integrity": "sha512-RYiYbkokw0trfKqqzfF55lginwEPrD3OJDfTuJzFs1MK6iFnDenaz1fqLLtX4ITG3OktJQXOeTaw1awrBAlZPw==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-win32-arm64-msvc": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.33.0.tgz",
++      "integrity": "sha512-1K+MPfLSFVpphzpdbfkhlWk6wBrTObBzS2T6db10PNOZgR9GoVsAWzwNyuhUYYbTp23j+4RrncfujZ4uAzXvwA==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/lightningcss-win32-x64-msvc": {
++      "version": "1.33.0",
++      "resolved": "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.33.0.tgz",
++      "integrity": "sha512-OlEICDx/Xl0FqSp4bry8zFnCvGpig3Gl4gCquvYwHuqJKEC1+n9NgDniFvqHGmMv1ZkqDJrDqKKSykTDX+ehuA==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MPL-2.0",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">= 12.0.0"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/parcel"
++      }
++    },
++    "node_modules/magic-string": {
++      "version": "0.30.21",
++      "resolved": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz",
++      "integrity": "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@jridgewell/sourcemap-codec": "^1.5.5"
++      }
++    },
++    "node_modules/micromatch": {
++      "version": "4.0.8",
++      "resolved": "https://registry.npmjs.org/micromatch/-/micromatch-4.0.8.tgz",
++      "integrity": "sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "braces": "^3.0.3",
++        "picomatch": "^2.3.1"
++      },
++      "engines": {
++        "node": ">=8.6"
++      }
++    },
++    "node_modules/micromatch/node_modules/picomatch": {
++      "version": "2.3.2",
++      "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz",
++      "integrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=8.6"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/jonschlinkert"
++      }
++    },
++    "node_modules/nanoid": {
++      "version": "3.3.20",
++      "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz",
++      "integrity": "sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/ai"
++        }
++      ],
++      "license": "MIT",
++      "bin": {
++        "nanoid": "bin/nanoid.cjs"
++      },
++      "engines": {
++        "node": "^10 || ^12 || ^13.7 || ^14 || >=15.0.1"
++      }
++    },
++    "node_modules/picocolors": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
++      "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==",
++      "license": "ISC"
++    },
++    "node_modules/picomatch": {
++      "version": "4.0.7",
++      "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
++      "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=12"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/jonschlinkert"
++      }
++    },
++    "node_modules/postcss": {
++      "version": "8.5.30",
++      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.30.tgz",
++      "integrity": "sha512-zkd+e9S1AQHhmaBKye9zlFHWjOwVgqXl1q3ECYy8561K7qxR2cREf/STLskulBFd78k6AOFeA+ff1TtEzk9bAA==",
++      "funding": [
++        {
++          "type": "opencollective",
++          "url": "https://opencollective.com/postcss/"
++        },
++        {
++          "type": "tidelift",
++          "url": "https://tidelift.com/funding/github/npm/postcss"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/ai"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "nanoid": "^3.3.20",
++        "picocolors": "^1.1.1",
++        "source-map-js": "^1.2.2"
++      },
++      "engines": {
++        "node": "^10 || ^12 || >=14"
++      }
++    },
++    "node_modules/rolldown": {
++      "version": "1.2.14",
++      "resolved": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.14.tgz",
++      "integrity": "sha512-eTBTTqMR6uHKLgcUqpJP8ntzDI6V4LYA8negAMBEI7gkgVvOdrx6VsvS2Ym+83KhOPdLCHWJu0w7UQFJZhHKNw==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@oxc-project/types": "=0.154.0",
++        "@rolldown/pluginutils": "^1.0.0"
++      },
++      "bin": {
++        "rolldown": "bin/cli.mjs"
++      },
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      },
++      "optionalDependencies": {
++        "@rolldown/binding-android-arm-eabi": "1.2.14",
++        "@rolldown/binding-android-arm64": "1.2.14",
++        "@rolldown/binding-darwin-arm64": "1.2.14",
++        "@rolldown/binding-darwin-x64": "1.2.14",
++        "@rolldown/binding-freebsd-x64": "1.2.14",
++        "@rolldown/binding-linux-arm-gnueabihf": "1.2.14",
++        "@rolldown/binding-linux-arm64-gnu": "1.2.14",
++        "@rolldown/binding-linux-arm64-musl": "1.2.14",
++        "@rolldown/binding-linux-ppc64-gnu": "1.2.14",
++        "@rolldown/binding-linux-s390x-gnu": "1.2.14",
++        "@rolldown/binding-linux-x64-gnu": "1.2.14",
++        "@rolldown/binding-linux-x64-musl": "1.2.14",
++        "@rolldown/binding-openharmony-arm64": "1.2.14",
++        "@rolldown/binding-win32-arm64-msvc": "1.2.14",
++        "@rolldown/binding-win32-x64-msvc": "1.2.14"
++      }
++    },
++    "node_modules/source-map-js": {
++      "version": "1.2.2",
++      "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
++      "integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==",
++      "license": "BSD-3-Clause",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/standardized-audio-context": {
++      "version": "25.3.77",
++      "resolved": "https://registry.npmjs.org/standardized-audio-context/-/standardized-audio-context-25.3.77.tgz",
++      "integrity": "sha512-Ki9zNz6pKcC5Pi+QPjPyVsD9GwJIJWgryji0XL9cAJXMGyn+dPOf6Qik1AHei0+UNVcc4BOCa0hWLBzlwqsW/A==",
++      "license": "MIT",
++      "dependencies": {
++        "@babel/runtime": "^7.25.6",
++        "automation-events": "^7.0.9",
++        "tslib": "^2.7.0"
++      }
++    },
++    "node_modules/tinyglobby": {
++      "version": "0.2.17",
++      "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
++      "integrity": "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "fdir": "^6.5.0",
++        "picomatch": "^4.0.4"
++      },
++      "engines": {
++        "node": ">=12.0.0"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/SuperchupuDev"
++      }
++    },
++    "node_modules/to-regex-range": {
++      "version": "5.0.1",
++      "resolved": "https://registry.npmjs.org/to-regex-range/-/to-regex-range-5.0.1.tgz",
++      "integrity": "sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "is-number": "^7.0.0"
++      },
++      "engines": {
++        "node": ">=8.0"
++      }
++    },
++    "node_modules/tone": {
++      "version": "15.1.22",
++      "resolved": "https://registry.npmjs.org/tone/-/tone-15.1.22.tgz",
++      "integrity": "sha512-TCScAGD4sLsama5DjvTUXlLDXSqPealhL64nsdV1hhr6frPWve0DeSo63AKnSJwgfg55fhvxj0iPPRwPN5o0ag==",
++      "license": "MIT",
++      "dependencies": {
++        "standardized-audio-context": "^25.3.70",
++        "tslib": "^2.3.1"
++      }
++    },
++    "node_modules/tslib": {
++      "version": "2.8.1",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
++      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
++      "license": "0BSD"
++    },
++    "node_modules/vite": {
++      "version": "8.3.2",
++      "resolved": "https://registry.npmjs.org/vite/-/vite-8.3.2.tgz",
++      "integrity": "sha512-SQr1x6W5vVSbROg7vsyXIaxK9b0G7zsT68acdWWRmnBUsgDieLCRG+Rep9WdZgcposvv/GSnr4GUUBqB3vXq6w==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "lightningcss": "^1.33.0",
++        "picomatch": "^4.0.7",
++        "postcss": "^8.5.28",
++        "rolldown": "~1.2.11",
++        "tinyglobby": "^0.2.17"
++      },
++      "bin": {
++        "vite": "bin/vite.js"
++      },
++      "engines": {
++        "node": "^20.19.0 || >=22.12.0"
++      },
++      "funding": {
++        "url": "https://github.com/vitejs/vite?sponsor=1"
++      },
++      "optionalDependencies": {
++        "fsevents": "~2.3.3"
++      },
++      "peerDependencies": {
++        "@types/node": "^20.19.0 || >=22.12.0",
++        "@vitejs/devtools": "^0.7.1",
++        "esbuild": "^0.27.0 || ^0.28.0",
++        "jiti": ">=1.21.0",
++        "less": "^4.0.0",
++        "sass": "^1.70.0",
++        "sass-embedded": "^1.70.0",
++        "stylus": ">=0.54.8",
++        "sugarss": "^5.0.0",
++        "terser": "^5.16.0",
++        "tsx": "^4.8.1",
++        "yaml": "^2.4.2"
++      },
++      "peerDependenciesMeta": {
++        "@types/node": {
++          "optional": true
++        },
++        "@vitejs/devtools": {
++          "optional": true
++        },
++        "esbuild": {
++          "optional": true
++        },
++        "jiti": {
++          "optional": true
++        },
++        "less": {
++          "optional": true
++        },
++        "sass": {
++          "optional": true
++        },
++        "sass-embedded": {
++          "optional": true
++        },
++        "stylus": {
++          "optional": true
++        },
++        "sugarss": {
++          "optional": true
++        },
++        "terser": {
++          "optional": true
++        },
++        "tsx": {
++          "optional": true
++        },
++        "yaml": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/vite-plugin-singlefile": {
++      "version": "2.3.3",
++      "resolved": "https://registry.npmjs.org/vite-plugin-singlefile/-/vite-plugin-singlefile-2.3.3.tgz",
++      "integrity": "sha512-XVnGH0QzbOa8fxRSsHdCarVN1BSBXNi7uLMQYlrGRN5apdHkk62XQWRJhVever0lnfuyBkwn+kvVChdm/OoOUg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "micromatch": "^4.0.8"
++      },
++      "engines": {
++        "node": ">18.0.0"
++      },
++      "peerDependencies": {
++        "rollup": "^4.59.0",
++        "vite": "^5.4.21 || ^6.0.0 || ^7.0.0 || ^8.0.0"
++      },
++      "peerDependenciesMeta": {
++        "rollup": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/vue": {
++      "version": "3.5.43",
++      "resolved": "https://registry.npmjs.org/vue/-/vue-3.5.43.tgz",
++      "integrity": "sha512-o5qZoksdnjIKvW1srZ3ab7pcDNYAerBjRe54D0LBLfRdCYFrSgBHVXokMas35czQc0//lmx4/tuY4ZNQ+Rf2Ng==",
++      "license": "MIT",
++      "dependencies": {
++        "@vue/compiler-dom": "3.5.43",
++        "@vue/compiler-sfc": "3.5.43",
++        "@vue/runtime-dom": "3.5.43",
++        "@vue/server-renderer": "3.5.43",
++        "@vue/shared": "3.5.43"
++      },
++      "peerDependencies": {
++        "typescript": "*"
++      },
++      "peerDependenciesMeta": {
++        "typescript": {
++          "optional": true
++        }
++      }
++    },
++    "web": {
++      "name": "@da-dun/web",
++      "version": "0.2.0",
++      "dependencies": {
++        "@da-dun/core": "*",
++        "tone": "15.1.22",
++        "vue": "3.5.43"
++      },
++      "devDependencies": {
++        "@vitejs/plugin-vue": "6.0.9",
++        "vite": "8.3.2",
++        "vite-plugin-singlefile": "2.3.3"
++      }
++    }
++  }
++}
+diff --git a/package.json b/package.json
+index 86b85b7..cdd7dbf 100644
+--- a/package.json
++++ b/package.json
+@@ -1,23 +1,17 @@
+ {
+   "name": "da-dun",
+-  "version": "0.1.0",
++  "version": "0.2.0",
++  "private": true,
+   "description": "LLM assisted music creation tool: tiny text notation -> midicsv CSV -> MIDI, with a browser editor.",
++  "license": "MIT",
++  "repository": { "type": "git", "url": "https://github.com/myakinkii/da-dun.git" },
+   "type": "module",
+-  "bin": {
+-    "da-dun": "src/cli.js"
+-  },
++  "workspaces": ["core", "web"],
+   "scripts": {
+-    "build": "node build.js",
+-    "watch": "node build.js --watch",
+-    "test": "node --test",
+-    "fixtures": "sh test/make-fixtures.sh"
++    "dev": "npm run dev -w web",
++    "build": "npm run build -w web",
++    "test": "npm test -w core && npm test -w web",
++    "fixtures": "npm run fixtures -w core"
+   },
+-  "engines": {
+-    "node": ">=18"
+-  },
+-  "license": "MIT",
+-  "repository": {
+-    "type": "git",
+-    "url": "https://github.com/myakinkii/da-dun.git"
+-  }
++  "engines": { "node": ">=20.19" }
+ }
+diff --git a/web/app.js b/web/app.js
+deleted file mode 100644
+index 492c04a..0000000
+--- a/web/app.js
++++ /dev/null
+@@ -1,466 +0,0 @@
+-// ---- app (inlined into dist/sketchbook.html by build.js) ----
+-// Storage: every sketch and every edited example is one "doc":
+-//   sk-<id>          {type: "sketch", text, title, updated, by}
+-//   draft-<example>  {type: "draft", example, text, title, updated, by}
+-// Docs always live in this browser's localStorage. Inside a claude.ai
+-// artifact they are also synced to the artifact's database, in the viewer's
+-// private collection data/users/<id>, where Claude can read and write them
+-// from the chat ("by": "claude" marks Claude's edits).
+-
+-const EXAMPLES = /*SONGS*/;
+-const GUIDE = /*GUIDE*/;
+-const NEW_SKETCH = "title New sketch\ntempo 100\ntime 4/4\n\npiano: c4 d e f | g1 |\n";
+-const $ = id => document.getElementById(id);
+-const editor = $("editor"), player = $("player"), viz = $("viz"), sel = $("song");
+-const titleOf = text => (String(text).match(/^\s*title\s+(.+)$/im) || [, "Untitled"])[1].trim();
+-
+-// ---- claude.ai capabilities (absent when the page runs from a file) ----
+-const hasClaude = typeof window.claude === "object" && window.claude !== null && typeof window.claude.use === "function";
+-const cap = name => (hasClaude ? window.claude.use(name).catch(() => null) : Promise.resolve(null));
+-const downloadsP = cap("downloads");
+-
+-// ---- local storage ----
+-const local = {
+-  get(k) { try { return JSON.parse(localStorage.getItem("sketchbook:" + k)); } catch (e) { return null; } },
+-  set(k, v) { try { localStorage.setItem("sketchbook:" + k, JSON.stringify(v)); } catch (e) {} },
+-  del(k) { try { localStorage.removeItem("sketchbook:" + k); } catch (e) {} },
+-};
+-const validItem = i => i && typeof i === "object" && typeof i.id === "string" && typeof i.request === "string" &&
+-  typeof i.notation === "string" && (i.explanation === undefined || typeof i.explanation === "string");
+-const validDoc = d => d && typeof d === "object" && (
+-  (typeof d.text === "string" && d.text.length < 200000 &&
+-   (d.type === "sketch" || (d.type === "draft" && EXAMPLES.some(e => e.id === d.example)))) ||
+-  (d.type === "hum" && typeof d.sketch === "string" && Array.isArray(d.items) && d.items.length <= 50 && d.items.every(validItem)));
+-
+-function loadLocalDocs() {
+-  let d = local.get("docs");
+-  if (!d || typeof d !== "object") {          // migrate the first version's storage format
+-    d = {};
+-    for (const s of local.get("sketches") || []) d["sk-" + s.id] = { type: "sketch", text: s.text, title: titleOf(s.text), by: "page" };
+-    for (const e of EXAMPLES) {
+-      const t = local.get("draft:" + e.id);
+-      if (typeof t === "string") d["draft-" + e.id] = { type: "draft", example: e.id, text: t, title: titleOf(t), by: "page" };
+-    }
+-    local.set("docs", d);
+-  }
+-  return new Map(Object.entries(d).filter(([, v]) => validDoc(v)));
+-}
+-let docs = loadLocalDocs();
+-const persistLocal = () => local.set("docs", Object.fromEntries(docs));
+-
+-// ---- remote (artifact database) ----
+-let remote = null;                  // {col, writing: Map<docId, true|"again">}
+-const syncNote = text => { $("sync").textContent = text; };
+-
+-async function connect() {
+-  const [db, user] = await Promise.all([cap("db"), cap("user")]);
+-  if (!db || !user) return;
+-  let uid = null;
+-  try { uid = await user.id(); } catch (e) {}
+-  if (!uid) return;
+-  remote = { col: db.collection("data/users/" + uid), writing: new Map() };
+-  let first = true;
+-  remote.col.onSnapshot(snap => {
+-    const isFirst = first; first = false;
+-    onRemote(snap, isFirst);
+-    syncNote("Saved to your artifact, so Claude can see your sketches.");
+-  }, () => {
+-    remote = null;
+-    syncNote("Syncing with the artifact stopped; edits are saved in this browser.");
+-  });
+-}
+-
+-async function pushRemote(docId) {
+-  if (!remote) return;
+-  const w = remote.writing;
+-  if (w.has(docId)) { w.set(docId, "again"); return; }
+-  try {
+-    do {
+-      w.set(docId, true);
+-      const d = docs.get(docId);
+-      if (d) await remote.col.doc(docId).set(d); else await remote.col.doc(docId).delete();
+-    } while (w.get(docId) === "again");
+-  } catch (e) {
+-    syncNote(e && e.code === "quota_exceeded"
+-      ? "The artifact’s storage is full; delete some sketches. Edits are saved in this browser."
+-      : "Couldn’t save to the artifact just now; edits are saved in this browser.");
+-  } finally { w.delete(docId); }
+-}
+-
+-function onRemote(snap, isFirst) {
+-  const next = new Map();
+-  let curRemote, curSeen = false;
+-  for (const d of snap.docs) {
+-    const v = d.data();
+-    if (!validDoc(v)) continue;
+-    next.set(d.id, v);
+-    if (current && d.id === current.docId) { curRemote = { v, pending: d.metadata.hasPendingWrites }; curSeen = true; }
+-  }
+-  // keep this page's unsaved or in-flight edit of the open doc
+-  const cid = current && current.docId;
+-  const busy = cid && (saveTimer || (remote && remote.writing.has(cid)));
+-  if (busy && docs.has(cid)) next.set(cid, docs.get(cid));
+-  const upload = [];
+-  if (isFirst) {                     // first sync: keep (and upload) anything only this browser has
+-    for (const [id, v] of docs) if (!next.has(id)) { next.set(id, v); upload.push(id); }
+-  }
+-  docs = next;
+-  persistLocal();
+-  upload.forEach(pushRemote);
+-
+-  if (current && !busy && !(curRemote && curRemote.pending)) {
+-    const incoming = curSeen ? curRemote.v.text : (current.example ? current.original : null);
+-    if (incoming === null) {
+-      showBanner("This sketch was deleted elsewhere.");
+-      open(entries()[0].key);
+-      return;
+-    }
+-    if (incoming !== editor.value) {
+-      const who = curSeen && curRemote.v.by === "claude" ? "Claude" : "Another window";
+-      if (editor.value === synced) {
+-        setEditor(incoming);
+-        showBanner(`${who} updated this sketch.`);
+-      } else {
+-        showBanner(`${who} changed this sketch while you were editing.`, [
+-          { label: "Load it", fn: () => setEditor(incoming) },
+-          { label: "Keep mine", fn: () => saveNow() },
+-        ]);
+-      }
+-    }
+-  }
+-  fillMenu(current ? current.key : undefined);
+-  if (current) renderHumHistory();
+-}
+-
+-// ---- entries in the menu ----
+-let current = null, synced = "", latest = null, pending = false, view = "csv", saveTimer = 0;
+-
+-function entries() {
+-  const sketches = [...docs.entries()].filter(([, d]) => d.type === "sketch").sort((a, b) => a[0].localeCompare(b[0]));
+-  return [
+-    ...EXAMPLES.map(e => {
+-      const d = docs.get("draft-" + e.id);
+-      return { key: "ex:" + e.id, docId: "draft-" + e.id, example: e.id, original: e.text, text: d ? d.text : e.text };
+-    }),
+-    ...sketches.map(([id, d]) => ({ key: id, docId: id, sketch: true, text: d.text })),
+-  ];
+-}
+-function fillMenu(selectKey) {
+-  const all = entries();
+-  sel.innerHTML = "";
+-  for (const [label, test] of [["Examples", e => e.example], ["My sketches", e => e.sketch]]) {
+-    const items = all.filter(test);
+-    if (!items.length) continue;
+-    const og = document.createElement("optgroup"); og.label = label;
+-    for (const e of items) og.appendChild(new Option(titleOf(e.key === (current && current.key) ? editor.value : e.text), e.key));
+-    sel.appendChild(og);
+-  }
+-  if (selectKey && all.some(e => e.key === selectKey)) sel.value = selectKey;
+-}
+-function open(key) {
+-  if (saveTimer) saveNow();
+-  const all = entries();
+-  current = all.find(e => e.key === key) || all[0];
+-  local.set("last", current.key);
+-  $("revert").hidden = !current.example;
+-  $("delete").hidden = !current.sketch;
+-  setEditor(current.text);
+-  fillMenu(current.key);
+-  closeProposal(false);
+-  renderHumHistory();
+-  const last = humItems().slice(-1)[0];
+-  if (last && last.status === "open") showProposal(last);
+-}
+-function setEditor(text) {
+-  editor.value = text;
+-  synced = text;
+-  compile();
+-}
+-
+-// ---- saving ----
+-function saveNow() {
+-  clearTimeout(saveTimer); saveTimer = 0;
+-  if (!current) return;
+-  const text = editor.value, id = current.docId;
+-  if (current.example && text === current.original) docs.delete(id);
+-  else docs.set(id, { type: current.example ? "draft" : "sketch", ...(current.example ? { example: current.example } : {}),
+-                     text, title: titleOf(text), updated: new Date().toISOString(), by: "page" });
+-  synced = text;
+-  persistLocal();
+-  pushRemote(id);
+-}
+-
+-// ---- compile: notation -> CSV -> MIDI -> player ----
+-function lineButton(w) {
+-  const li = document.createElement("li"), b = document.createElement("button");
+-  b.textContent = (w.line ? `Line ${w.line}: ` : "") + w.message;
+-  if (w.line) b.onclick = () => gotoLine(w.line);
+-  li.appendChild(b); return li;
+-}
+-function compile(autoload = true) {
+-  const st = $("status"); st.innerHTML = "";
+-  try {
+-    const r = notate(editor.value);
+-    const m = csvToMidi(r.csv);
+-    latest = { csv: r.csv, bytes: m.bytes, ns: null };
+-    if (window.core) latest.ns = core.midiToSequenceProto(m.bytes);
+-    const ws = [...r.warnings, ...m.warnings];
+-    const bars = Math.ceil(r.ticks / r.barTicks);
+-    const ok = document.createElement("span"); ok.className = "ok";
+-    ok.textContent = `${bars} bar${bars === 1 ? "" : "s"}, ${r.notes} note${r.notes === 1 ? "" : "s"}` +
+-      (ws.length ? `, ${ws.length} warning${ws.length === 1 ? "" : "s"}:` : ". All good.");
+-    st.appendChild(ok);
+-    if (ws.length) { const ul = document.createElement("ul"); ws.forEach(w => ul.appendChild(lineButton(w))); st.appendChild(ul); }
+-    if (!window.core) {
+-      const e = document.createElement("div"); e.className = "err";
+-      e.textContent = "The player scripts didn’t load, so playback is off. Check your internet connection and reload.";
+-      st.appendChild(e);
+-    }
+-    showText();
+-    if (!autoload) return;
+-    if (player.playing) pending = true; else load();
+-  } catch (e) {
+-    latest = null;
+-    const err = document.createElement("div"); err.className = "err";
+-    err.textContent = e.message; st.appendChild(err);
+-    if (e.line) { const ul = document.createElement("ul"); ul.appendChild(lineButton({ line: e.line, message: "go to the problem" })); st.appendChild(ul); }
+-  }
+-}
+-function load() {
+-  pending = false;
+-  if (latest && latest.ns) { player.noteSequence = latest.ns; viz.noteSequence = latest.ns; }
+-}
+-// The player prepares a new sequence asynchronously and ignores start()
+-// until it's ready, so start on its "load" event (with a fallback timer).
+-function playSequence(ns) {
+-  try { if (window.Tone) Tone.start(); } catch (e) {}
+-  if (player.playing) player.stop();
+-  pending = false;
+-  let done = false, timer = 0;
+-  const go = () => {
+-    if (done) return;
+-    done = true; clearTimeout(timer); player.removeEventListener("load", go);
+-    try { player.start(); } catch (e) {}
+-  };
+-  player.addEventListener("load", go);
+-  timer = setTimeout(go, 1500);
+-  player.noteSequence = ns; viz.noteSequence = ns;
+-}
+-function playFromStart() {
+-  compile(false);
+-  if (latest && latest.ns) playSequence(latest.ns);
+-}
+-player.addEventListener("stop", () => { if (pending) load(); });
+-
+-function gotoLine(n) {
+-  const lines = editor.value.split("\n");
+-  const start = lines.slice(0, n - 1).reduce((a, l) => a + l.length + 1, 0);
+-  editor.focus();
+-  editor.setSelectionRange(start, start + (lines[n - 1] || "").length);
+-  const lh = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+-  editor.scrollTop = Math.max(0, (n - 3) * lh);
+-}
+-function showText() { $("text").textContent = view === "guide" ? GUIDE : (latest ? latest.csv : ""); }
+-
+-// ---- banner: a notice with buttons; each button closes it ----
+-function showBanner(text, actions = [{ label: "OK" }]) {
+-  $("banner-text").textContent = text;
+-  const box = $("banner-actions"); box.innerHTML = "";
+-  for (const a of actions) {
+-    const b = document.createElement("button");
+-    b.textContent = a.label;
+-    b.onclick = () => { hideBanner(); if (a.fn) a.fn(); };
+-    box.appendChild(b);
+-  }
+-  $("banner").hidden = false;
+-}
+-const hideBanner = () => { $("banner").hidden = true; };
+-
+-// ---- hum box: describe music in words, Claude writes the notation ----
+-const sampleP = cap("sample");
+-let humCtl = null, proposal = null;
+-sampleP.then(s => { if (s) $("hum").hidden = false; });
+-const HUM_ERRORS = {
+-  cancelled: "Stopped.",
+-  not_granted: "The hum box needs your permission to ask Claude. Reload the page to be asked again.",
+-  rate_limited: "Claude is busy, or you’ve reached a usage limit. Try again in a little while.",
+-  refused: "Claude declined that request. Try describing it differently.",
+-  invalid_json: "Claude’s answer couldn’t be read. Try again.",
+-  empty_completion: "Claude’s answer came back empty. Try again.",
+-  prompt_too_large: "This sketch is too long to send in one go.",
+-  session_expired: "Your session expired. Reload the page and try again.",
+-};
+-const humError = e => HUM_ERRORS[e && e.code] ||
+-  (e && e.code ? `Asking Claude isn’t working right now (${e.code}).` : (e && e.message) || "Something went wrong.");
+-function setHumBusy(busy) {
+-  $("hum-go").disabled = busy;
+-  $("hum-stop").hidden = !busy;
+-}
+-const humItems = (sketch = current.docId) => (docs.get("hum-" + sketch) || { items: [] }).items;
+-function saveHumItems(items, sketch = current.docId) {
+-  const id = "hum-" + sketch;
+-  if (items.length) docs.set(id, { type: "hum", sketch, items: items.slice(-20), updated: new Date().toISOString() });
+-  else docs.delete(id);
+-  persistLocal(); pushRemote(id); renderHumHistory();
+-}
+-function setHumStatus(itemId, status) {
+-  saveHumItems(humItems().map(i => (i.id === itemId ? { ...i, status } : i)));
+-}
+-const STATUS_LABEL = { open: "new", used: "used", dropped: "dropped", answer: "answer" };
+-function renderHumHistory() {
+-  const items = current ? humItems() : [];
+-  const box = $("hum-history");
+-  box.hidden = !items.length;
+-  $("hum-history-count").textContent = items.length;
+-  const ol = $("hum-history-list"); ol.innerHTML = "";
+-  for (const it of items.slice().reverse()) {
+-    const li = document.createElement("li"), b = document.createElement("button"), s = document.createElement("span");
+-    b.textContent = it.request.length > 90 ? it.request.slice(0, 88) + "…" : it.request;
+-    b.onclick = () => showProposal(it);
+-    s.textContent = STATUS_LABEL[it.status] || "";
+-    li.append(b, " ", s); ol.appendChild(li);
+-  }
+-}
+-function showProposal(item) {
+-  proposal = item;
+-  const answerOnly = item.notation.trim() === editor.value.trim();
+-  $("hum-explain").textContent = item.explanation || "Here’s a version.";
+-  $("hum-preview").textContent = item.notation;
+-  $("hum-preview").hidden = answerOnly;
+-  $("hum-apply").hidden = answerOnly;
+-  $("hum-play").hidden = answerOnly;
+-  $("hum-discard").textContent = answerOnly ? "Close" : "Discard";
+-  const n = (item.problems || []).length;
+-  $("hum-note").textContent = n
+-    ? `Heads-up: the converter still found ${n} problem${n === 1 ? "" : "s"}; you’ll see ${n === 1 ? "it" : "them"} under the editor if you use this.`
+-    : item.repaired ? "Claude fixed a mistake in its first try." : "";
+-  $("hum-result").hidden = false;
+-}
+-async function humGo() {
+-  const request = $("hum-input").value.trim();
+-  if (!request) { $("hum-input").focus(); return; }
+-  const sample = await sampleP;
+-  if (!sample || humCtl) return;
+-  const ctl = humCtl = new AbortController();
+-  setHumBusy(true);
+-  $("hum-result").hidden = true;
+-  $("hum-note").textContent = "Thinking…";
+-  const base = editor.value, sketch = current.docId;
+-  try {
+-    const r = await hum({
+-      notation: base, request, guide: GUIDE, repairs: 1,
+-      ask: p => sample.json(p, { signal: ctl.signal, cache: false }),
+-    });
+-    const item = { id: Date.now().toString(36), request, explanation: r.explanation, notation: r.notation,
+-                   problems: r.problems, repaired: r.attempts > 1, at: new Date().toISOString(),
+-                   status: r.notation.trim() === base.trim() ? "answer" : "open" };
+-    saveHumItems([...humItems(sketch), item], sketch);   // kept even if you switched sketches meanwhile
+-    if (current && current.docId === sketch) showProposal(item);
+-  } catch (e) {
+-    $("hum-note").textContent = humError(e);
+-  } finally {
+-    humCtl = null;
+-    setHumBusy(false);
+-  }
+-}
+-function closeProposal(restorePlayer = true) {
+-  proposal = null;
+-  $("hum-result").hidden = true;
+-  $("hum-note").textContent = "";
+-  if (!restorePlayer) return;
+-  if (player.playing) { pending = true; player.stop(); } else load();   // back to the editor's version
+-}
+-$("hum-go").onclick = humGo;
+-$("hum-stop").onclick = () => { if (humCtl) humCtl.abort(); };
+-$("hum-input").addEventListener("keydown", e => {
+-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); humGo(); }
+-});
+-$("hum-play").onclick = () => {
+-  if (!proposal || !window.core) return;
+-  try {
+-    playSequence(core.midiToSequenceProto(csvToMidi(notate(proposal.notation).csv).bytes));
+-  } catch (e) { $("hum-note").textContent = e.message; }
+-};
+-$("hum-apply").onclick = () => {
+-  if (!proposal) return;
+-  const before = editor.value, text = proposal.notation;
+-  setHumStatus(proposal.id, "used");
+-  closeProposal();
+-  setEditor(text); saveNow();
+-  fillMenu(current.key);
+-  showBanner("Using Claude’s version now.", [
+-    { label: "Undo", fn: () => { setEditor(before); saveNow(); fillMenu(current.key); } },
+-    { label: "OK" },
+-  ]);
+-};
+-$("hum-discard").onclick = () => {
+-  if (proposal && proposal.status === "open") setHumStatus(proposal.id, "dropped");
+-  closeProposal();
+-};
+-$("hum-clear").onclick = () => {
+-  if (!confirm("Forget all of Claude’s earlier answers for this sketch?")) return;
+-  closeProposal(); saveHumItems([]);
+-};
+-
+-// ---- saving files ----
+-async function saveFile(kind) {
+-  if (kind !== "txt" && !latest) { showBanner("Fix the error above first; there’s nothing to save yet."); return; }
+-  const name = (titleOf(editor.value).replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "sketch").toLowerCase();
+-  let filename = `${name}.${kind}`;
+-  let data = kind === "mid" ? latest.bytes : kind === "csv" ? latest.csv : editor.value;
+-  const downloads = await downloadsP;
+-  if (downloads) {
+-    if (kind === "mid") { data = makeZip([{ name: filename, data }]); filename = `${name}-midi.zip`; }
+-    try { await downloads.save({ filename, data: data instanceof Uint8Array ? data.slice() : data }); }
+-    catch (e) { if (!e || e.code !== "declined") showBanner(`Couldn’t save the file (${(e && e.code) || "error"}).`); }
+-    return;
+-  }
+-  const blob = new Blob([data], { type: kind === "mid" ? "audio/midi" : "text/plain" });
+-  const a = document.createElement("a");
+-  a.href = URL.createObjectURL(blob); a.download = filename;
+-  document.body.appendChild(a); a.click(); a.remove();
+-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+-}
+-downloadsP.then(d => { if (d) document.querySelector('[data-save="mid"]').textContent = "MIDI (zip)"; });
+-
+-// ---- events ----
+-editor.addEventListener("input", () => {
+-  clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 700);
+-  clearTimeout(compileTimer); compileTimer = setTimeout(compile, 300);
+-  const opt = [...sel.options].find(o => o.value === current.key);
+-  if (opt) opt.textContent = titleOf(editor.value);
+-});
+-let compileTimer = 0;
+-editor.addEventListener("keydown", e => {
+-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); playFromStart(); }
+-  else if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); editor.setRangeText("  ", editor.selectionStart, editor.selectionEnd, "end"); editor.dispatchEvent(new Event("input")); }
+-});
+-window.addEventListener("beforeunload", () => { if (saveTimer) saveNow(); });
+-document.addEventListener("pointerdown", () => { try { if (window.Tone) Tone.start(); } catch (e) {} }, { capture: true });
+-$("play").onclick = playFromStart;
+-sel.onchange = () => { if (player.playing) player.stop(); hideBanner(); open(sel.value); };
+-$("new").onclick = () => {
+-  const id = "sk-" + Date.now().toString(36);
+-  docs.set(id, { type: "sketch", text: NEW_SKETCH, title: titleOf(NEW_SKETCH), updated: new Date().toISOString(), by: "page" });
+-  persistLocal(); pushRemote(id); open(id); editor.focus();
+-};
+-$("revert").onclick = () => {
+-  if (!current.example || editor.value === current.original) return;
+-  if (!confirm("Throw away your edits to this example?")) return;
+-  setEditor(current.original); saveNow();
+-};
+-$("delete").onclick = () => {
+-  if (!current.sketch || !confirm(`Delete “${titleOf(editor.value)}”?`)) return;
+-  clearTimeout(saveTimer); saveTimer = 0;
+-  const id = current.docId; docs.delete(id); docs.delete("hum-" + id); persistLocal(); pushRemote(id); pushRemote("hum-" + id);
+-  current = null; open(entries()[0].key);
+-};
+-document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+-  view = b.dataset.show;
+-  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+-  showText();
+-});
+-document.querySelectorAll("[data-save]").forEach(b => b.onclick = () => saveFile(b.dataset.save));
+-
+-open(local.get("last") || "ex:" + EXAMPLES[0].id);
+-connect();
+diff --git a/web/index.html b/web/index.html
+index b690655..c7f1015 100644
+--- a/web/index.html
++++ b/web/index.html
+@@ -3,135 +3,11 @@
+ <head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+-<title>MIDI Sketchbook</title>
+-<!-- Built from web/index.html by build.js; edit the sources, not dist/. -->
+-<style>
+-:root {
+-  --bg: #F3F5F8; --ink: #17202E; --muted: #5B6676; --panel: #FFFFFF; --line: #D5DCE4;
+-  --sel: #E4E9EF; --accent: #2F5BD3; --accent-ink: #FFFFFF; --ok: #2E7D4F; --warn: #A15C00; --err: #C0362C;
+-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+-  color-scheme: light; box-sizing: border-box;
+-  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+-}
+-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+-  --bg: #121821; --ink: #E4E9F0; --muted: #93A0B2; --panel: #1A222E; --line: #2B3645;
+-  --sel: #263142; --accent: #7EA2FF; --accent-ink: #0E1420; --ok: #6CCB93; --warn: #F0B45A; --err: #FF7B6E;
+-  color-scheme: dark; } }
+-:root[data-theme="dark"] {
+-  --bg: #121821; --ink: #E4E9F0; --muted: #93A0B2; --panel: #1A222E; --line: #2B3645;
+-  --sel: #263142; --accent: #7EA2FF; --accent-ink: #0E1420; --ok: #6CCB93; --warn: #F0B45A; --err: #FF7B6E;
+-  color-scheme: dark; }
+-*, *::before, *::after { box-sizing: inherit; }
+-html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+-body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+-main { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+-.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+-.bar .spacer { flex: 1; }
+-select, button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+-select { max-width: 100%; }
+-button:hover, select:hover { border-color: var(--muted); }
+-button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+-button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+-textarea {
+-  display: block; width: 100%; min-height: 220px; resize: vertical; padding: 12px 14px;
+-  font: 0.92rem/1.6 var(--mono); color: var(--ink); background: var(--panel);
+-  border: 1px solid var(--line); border-radius: 8px; tab-size: 2; white-space: pre; overflow: auto;
+-}
+-.status { min-height: 1.6em; margin: 8px 0 16px; font-size: 0.9rem; }
+-.status .ok { color: var(--ok); }
+-.status .err { color: var(--err); font-weight: 600; }
+-.status ul { margin: 4px 0 0; padding: 0; list-style: none; }
+-.status li button { border: 0; background: none; padding: 1px 0; color: var(--warn); text-align: left; cursor: pointer; font: inherit; }
+-.status li button:hover { text-decoration: underline; }
+-midi-player { display: block; width: 100%; margin-bottom: 10px; }
+-.viz { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; min-height: 60px; }
+-.tabs { display: flex; gap: 4px; margin: 22px 0 8px; }
+-.tabs button { border: 0; background: transparent; color: var(--muted); font-weight: 500; }
+-.tabs button[aria-selected="true"] { background: var(--sel); color: var(--ink); }
+-pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 420px; font: 0.82rem/1.55 var(--mono); margin: 0; }
+-.banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 0.9rem; }
+-.banner[hidden] { display: none; }
+-.banner span { flex: 1; min-width: 12em; }
+-.hum { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+-.hum[hidden] { display: none; }
+-.hum label { display: block; font-weight: 600; margin-bottom: 6px; }
+-.hum-row { display: flex; gap: 8px; align-items: flex-start; }
+-.hum-row textarea { flex: 1; min-height: 0; white-space: pre-wrap; font: inherit; padding: 8px 10px; resize: vertical; }
+-.hum-buttons { display: flex; flex-direction: column; gap: 6px; }
+-.hum-note { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
+-#hum-explain { margin: 8px 0; }
+-#hum-preview { max-height: 220px; }
+-#hum-history { margin-top: 8px; font-size: 0.9rem; }
+-#hum-history summary { cursor: pointer; color: var(--muted); }
+-#hum-history ol { margin: 6px 0 8px; padding-left: 1.4em; }
+-#hum-history li { margin: 2px 0; }
+-#hum-history li button { border: 0; background: none; padding: 0; color: var(--accent); text-align: left; cursor: pointer; }
+-#hum-history li button:hover { text-decoration: underline; }
+-#hum-history li span { color: var(--muted); font-size: 0.8rem; }
+-@media (max-width: 560px) { .hum-row { flex-direction: column; align-items: stretch; } .hum-buttons { flex-direction: row; } }
+-.hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
+-kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+-</style>
++<title>da-dun</title>
++<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥁</text></svg>">
+ </head>
+ <body>
+-<main>
+-  <div class="bar">
+-    <select id="song" aria-label="Song"></select>
+-    <button id="new">New sketch</button>
+-    <button id="revert" title="Undo all your edits to this example">Revert</button>
+-    <button id="delete" hidden>Delete</button>
+-    <span class="spacer"></span>
+-    <button class="primary" id="play">Play from start</button>
+-  </div>
+-  <section class="hum" id="hum" hidden aria-labelledby="hum-label">
+-    <label id="hum-label" for="hum-input">Hum it to Claude</label>
+-    <div class="hum-row">
+-      <textarea id="hum-input" rows="2" placeholder="ta-ta-ta-TAAM, rising and heroic. Add it as two new bars after bar 4."></textarea>
+-      <div class="hum-buttons"><button class="primary" id="hum-go">Write it</button><button id="hum-stop" hidden>Stop</button></div>
+-    </div>
+-    <p class="hum-note" id="hum-note" aria-live="polite"></p>
+-    <div id="hum-result" hidden>
+-      <p id="hum-explain"></p>
+-      <pre id="hum-preview"></pre>
+-      <div class="bar" style="margin:8px 0 0"><button class="primary" id="hum-apply">Use this</button><button id="hum-play">Play it</button><button id="hum-discard">Discard</button></div>
+-    </div>
+-    <details id="hum-history" hidden>
+-      <summary>Earlier answers (<span id="hum-history-count">0</span>)</summary>
+-      <ol id="hum-history-list"></ol>
+-      <button id="hum-clear">Forget these</button>
+-    </details>
+-  </section>
+-  <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Notation"></textarea>
+-  <div class="banner" id="banner" hidden role="status"><span id="banner-text"></span><span id="banner-actions"></span></div>
+-  <p class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays from the start. <span id="sync">Edits are saved in this browser as you type.</span></p>
+-  <div class="status" id="status" aria-live="polite"></div>
+-
+-  <midi-player id="player" visualizer="#viz"></midi-player>
+-  <div class="viz"><midi-visualizer type="piano-roll" id="viz"></midi-visualizer></div>
+-
+-  <div class="tabs" role="tablist">
+-    <button role="tab" data-show="csv" aria-selected="true">CSV</button>
+-    <button role="tab" data-show="guide" aria-selected="false">Notation guide</button>
+-  </div>
+-  <pre id="text"></pre>
+-  <div class="bar" style="margin-top:10px">
+-    <span class="hint" style="margin:0">Save as:</span>
+-    <button data-save="mid">MIDI</button>
+-    <button data-save="csv">CSV</button>
+-    <button data-save="txt">Notation</button>
+-  </div>
+-</main>
+-
+-<script src="https://cdn.jsdelivr.net/npm/tone@14.7.58"></script>
+-<script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/core.js"></script>
+-<script src="https://cdn.jsdelivr.net/npm/html-midi-player@1.4.0"></script>
+-<script>
+-(() => {
+-"use strict";
+-/*MODULES*/
+-
+-/*APP*/
+-})();
+-</script>
++<div id="app"></div>
++<script type="module" src="/src/main.js"></script>
+ </body>
+ </html>
+diff --git a/web/package.json b/web/package.json
+new file mode 100644
+index 0000000..6e17921
+--- /dev/null
++++ b/web/package.json
+@@ -0,0 +1,22 @@
++{
++  "name": "@da-dun/web",
++  "version": "0.2.0",
++  "private": true,
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "vite build",
++    "preview": "vite preview",
++    "test": "node --test"
++  },
++  "dependencies": {
++    "@da-dun/core": "*",
++    "tone": "15.1.22",
++    "vue": "3.5.43"
++  },
++  "devDependencies": {
++    "@vitejs/plugin-vue": "6.0.9",
++    "vite": "8.3.2",
++    "vite-plugin-singlefile": "2.3.3"
++  }
++}
+diff --git a/web/src/App.vue b/web/src/App.vue
+new file mode 100644
+index 0000000..61d86ac
+--- /dev/null
++++ b/web/src/App.vue
+@@ -0,0 +1,131 @@
++<script setup>
++import { ref, computed, onMounted, onBeforeUnmount } from "vue";
++import { useSketchbook, GUIDE } from "./sketchbook.js";
++import PianoRoll from "./components/PianoRoll.vue";
++import HumBox from "./components/HumBox.vue";
++
++const sb = useSketchbook();
++const { player, text, compiled, current, currentKey, menu, syncNote, banner, humState, zipMidi } = sb;
++const editorEl = ref(null);
++const view = ref("csv");
++
++const groups = computed(() => ["Examples", "My sketches"]
++  .map(g => ({ label: g, items: menu.value.filter(m => m.group === g) })).filter(g => g.items.length));
++const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
++const status = computed(() => {
++  const c = compiled.value;
++  if (!c.ok) return null;
++  const w = c.warnings.length;
++  return `${c.bars} bar${c.bars === 1 ? "" : "s"}, ${c.notes} note${c.notes === 1 ? "" : "s"}` +
++         (w ? `, ${w} warning${w === 1 ? "" : "s"}:` : ". All good.");
++});
++
++function gotoLine(n) {
++  const el = editorEl.value, lines = el.value.split("\n");
++  const start = lines.slice(0, n - 1).reduce((a, l) => a + l.length + 1, 0);
++  el.focus();
++  el.setSelectionRange(start, start + (lines[n - 1] || "").length);
++  el.scrollTop = Math.max(0, (n - 3) * (parseFloat(getComputedStyle(el).lineHeight) || 20));
++}
++function playFromStart() { sb.compileNow(); player.play(0); }
++function onEditorKey(e) {
++  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); playFromStart(); }
++  else if (e.key === "Tab" && !e.shiftKey) {
++    e.preventDefault();
++    const el = editorEl.value;
++    el.setRangeText("  ", el.selectionStart, el.selectionEnd, "end");
++    sb.onInput(el.value);
++  }
++}
++function onGlobalKey(e) {
++  if (e.code === "Space" && !/^(INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY)$/.test(e.target.tagName)) {
++    e.preventDefault(); player.toggle();
++  }
++}
++onMounted(() => { sb.start(); window.addEventListener("keydown", onGlobalKey); });
++onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
++</script>
++
++<template>
++  <main>
++    <div class="bar">
++      <select :value="currentKey" aria-label="Song" @change="sb.open($event.target.value)">
++        <optgroup v-for="g in groups" :key="g.label" :label="g.label">
++          <option v-for="m in g.items" :key="m.key" :value="m.key">{{ m.title }}</option>
++        </optgroup>
++      </select>
++      <button @click="sb.newSketch()">New sketch</button>
++      <button v-if="current?.example" title="Undo all your edits to this example" @click="sb.revert()">Revert</button>
++      <button v-if="current?.sketch" @click="sb.remove()">Delete</button>
++    </div>
++
++    <HumBox v-if="humState.available" :sb="sb" />
++
++    <textarea ref="editorEl" class="editor" :value="text" spellcheck="false" autocapitalize="off" autocomplete="off"
++              aria-label="Notation" @input="sb.onInput($event.target.value)" @keydown="onEditorKey"></textarea>
++    <p class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays from the start, <kbd>Space</kbd> plays and stops. {{ syncNote }}</p>
++
++    <div v-if="banner" class="banner" role="status">
++      <span>{{ banner.text }}</span>
++      <button v-for="a in banner.actions" :key="a.label" @click="sb.bannerAction(a)">{{ a.label }}</button>
++    </div>
++
++    <div class="status" aria-live="polite">
++      <template v-if="compiled.ok">
++        <span class="ok">{{ status }}</span>
++        <ul v-if="compiled.warnings.length">
++          <li v-for="(w, i) in compiled.warnings" :key="i">
++            <button class="warn" @click="w.line && gotoLine(w.line)">{{ w.line ? `Line ${w.line}: ` : "" }}{{ w.message }}</button>
++          </li>
++        </ul>
++      </template>
++      <template v-else>
++        <div class="err">{{ compiled.error }}</div>
++        <ul v-if="compiled.line"><li><button class="warn" @click="gotoLine(compiled.line)">Go to line {{ compiled.line }}</button></li></ul>
++      </template>
++    </div>
++
++    <div class="transport">
++      <button class="play" :aria-label="player.state.playing ? 'Stop' : 'Play'" :disabled="!player.canPlay || !compiled.ok"
++              @click="player.toggle()">
++        <svg v-if="!player.state.playing" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg>
++        <svg v-else viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/></svg>
++      </button>
++      <button @click="playFromStart" :disabled="!player.canPlay || !compiled.ok">From the start</button>
++      <span class="time">{{ fmt(player.state.position) }} <span>/ {{ fmt(player.state.duration) }}</span></span>
++      <span v-if="compiled.ok && compiled.song" class="bpm">{{ Math.round(compiled.song.bpm) }} BPM</span>
++      <span v-if="!player.canPlay" class="err">This browser can’t play audio.</span>
++      <span v-if="player.state.error" class="err">{{ player.state.error }}</span>
++    </div>
++    <PianoRoll :song="compiled.ok ? compiled.song : null" :position="player.state.position" :playing="player.state.playing"
++               @seek="player.seek" @play-note="n => player.play(n.start)" />
++
++    <div class="tabs" role="tablist">
++      <button role="tab" :aria-selected="view === 'csv'" @click="view = 'csv'">CSV</button>
++      <button role="tab" :aria-selected="view === 'guide'" @click="view = 'guide'">Notation guide</button>
++    </div>
++    <pre>{{ view === "guide" ? GUIDE : (compiled.ok ? compiled.csv : "") }}</pre>
++    <div class="bar save">
++      <span class="hint">Save as:</span>
++      <button @click="sb.saveFile('mid')">{{ zipMidi ? "MIDI (zip)" : "MIDI" }}</button>
++      <button @click="sb.saveFile('csv')">CSV</button>
++      <button @click="sb.saveFile('txt')">Notation</button>
++    </div>
++  </main>
++</template>
++
++<style scoped>
++.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 10px; }
++.play { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; padding: 0;
++        background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
++.play svg { width: 16px; height: 16px; }
++.time { font-variant-numeric: tabular-nums; font-weight: 500; }
++.time span, .bpm { color: var(--muted); font-weight: 400; }
++.banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; padding: 8px 12px;
++          border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 0.9rem; }
++.banner span { flex: 1; min-width: 12em; }
++.save { margin-top: 10px; }
++.save .hint { margin: 0; }
++.warn { border: 0; background: none; padding: 1px 0; color: var(--warn); text-align: left; cursor: pointer; font: inherit; }
++.warn:hover { text-decoration: underline; }
++</style>
+diff --git a/web/src/claude.js b/web/src/claude.js
+new file mode 100644
+index 0000000..383fba6
+--- /dev/null
++++ b/web/src/claude.js
+@@ -0,0 +1,13 @@
++// claude.js: access to claude.ai artifact capabilities.
++// Outside a claude.ai artifact (a local file, the dev server) every
++// capability resolves to null and the app falls back to plain browser features.
++
++const hasClaude = typeof window !== "undefined" && typeof window.claude === "object" &&
++  window.claude !== null && typeof window.claude.use === "function";
++const cache = new Map();
++
++/** Resolve a capability namespace (db, user, sample, downloads, ...) or null. */
++export function capability(name) {
++  if (!cache.has(name)) cache.set(name, hasClaude ? window.claude.use(name).catch(() => null) : Promise.resolve(null));
++  return cache.get(name);
++}
+diff --git a/web/src/components/HumBox.vue b/web/src/components/HumBox.vue
+new file mode 100644
+index 0000000..078f831
+--- /dev/null
++++ b/web/src/components/HumBox.vue
+@@ -0,0 +1,72 @@
++<script setup>
++// "Hum it to Claude": describe music in words, Claude writes the notation.
++import { ref } from "vue";
++
++const props = defineProps({ sb: Object });
++const request = ref("");
++const st = props.sb.humState;
++async function go() {
++  if (!request.value.trim()) return;
++  await props.sb.humAsk(request.value);
++}
++function onKey(e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } }
++const LABEL = { open: "new", used: "used", dropped: "dropped", answer: "answer" };
++const short = s => (s.length > 90 ? s.slice(0, 88) + "…" : s);
++</script>
++
++<template>
++  <section class="hum" aria-labelledby="hum-label">
++    <label id="hum-label" for="hum-input">Hum it to Claude</label>
++    <div class="row">
++      <textarea id="hum-input" v-model="request" rows="2" @keydown="onKey"
++                placeholder="ta-ta-ta-TAAM, rising and heroic. Add it as two new bars after bar 4."></textarea>
++      <div class="buttons">
++        <button class="primary" :disabled="st.busy" @click="go">Write it</button>
++        <button v-if="st.busy" @click="sb.humStop()">Stop</button>
++      </div>
++    </div>
++    <p class="note" aria-live="polite">{{ st.note }}</p>
++    <div v-if="st.proposal" class="result">
++      <p>{{ st.proposal.explanation || "Here’s a version." }}</p>
++      <template v-if="!st.proposal.answerOnly">
++        <pre>{{ st.proposal.notation }}</pre>
++        <div class="actions">
++          <button class="primary" @click="sb.humUse()">Use this</button>
++          <button @click="sb.humPreview()">Play it</button>
++          <button @click="sb.humDiscard()">Discard</button>
++        </div>
++      </template>
++      <div v-else class="actions"><button @click="sb.humDiscard()">Close</button></div>
++    </div>
++    <details v-if="sb.humHistory.value.length" class="history">
++      <summary>Earlier answers ({{ sb.humHistory.value.length }})</summary>
++      <ol>
++        <li v-for="it in sb.humHistory.value" :key="it.id">
++          <button class="link" @click="sb.showProposal(it)">{{ short(it.request) }}</button>
++          <span>{{ LABEL[it.status] || "" }}</span>
++        </li>
++      </ol>
++      <button @click="sb.humForget()">Forget these</button>
++    </details>
++  </section>
++</template>
++
++<style scoped>
++.hum { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
++label { display: block; font-weight: 600; margin-bottom: 6px; }
++.row { display: flex; gap: 8px; align-items: flex-start; }
++.row textarea { flex: 1; min-height: 0; white-space: pre-wrap; font: inherit; padding: 8px 10px; resize: vertical; }
++.buttons { display: flex; flex-direction: column; gap: 6px; }
++.note { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
++.result p { margin: 8px 0; }
++.result pre { max-height: 220px; }
++.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
++.history { margin-top: 8px; font-size: 0.9rem; }
++.history summary { cursor: pointer; color: var(--muted); }
++.history ol { margin: 6px 0 8px; padding-left: 1.4em; }
++.history li { margin: 2px 0; }
++.history li span { color: var(--muted); font-size: 0.8rem; margin-left: 4px; }
++.link { border: 0; background: none; padding: 0; color: var(--accent); text-align: left; cursor: pointer; }
++.link:hover { text-decoration: underline; }
++@media (max-width: 560px) { .row { flex-direction: column; align-items: stretch; } .buttons { flex-direction: row; } }
++</style>
+diff --git a/web/src/components/PianoRoll.vue b/web/src/components/PianoRoll.vue
+new file mode 100644
+index 0000000..667ea69
+--- /dev/null
++++ b/web/src/components/PianoRoll.vue
+@@ -0,0 +1,87 @@
++<script setup>
++// Piano roll drawn from our own Song data. Click a note to play from it,
++// click anywhere else to move the playhead there.
++import { computed } from "vue";
++import { GM_DRUMS, GM_DRUM_FIRST } from "@da-dun/core";
++
++const props = defineProps({ song: Object, position: Number, playing: Boolean });
++const emit = defineEmits(["seek", "play-note"]);
++const W = 1000, H = 260;
++const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
++const noteName = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
++
++const layout = computed(() => {
++  const s = props.song;
++  if (!s || !s.notes.length) return null;
++  const dur = Math.max(s.duration, 0.5);
++  const mel = s.notes.filter(n => n.ch !== 9);
++  const drumKeys = [...new Set(s.notes.filter(n => n.ch === 9).map(n => n.note))].sort((a, b) => b - a);
++  let lo = 127, hi = 0;
++  for (const n of mel) { lo = Math.min(lo, n.note); hi = Math.max(hi, n.note); }
++  if (mel.length) { lo -= 2; hi += 2; if (hi - lo < 12) { const c = (hi + lo) >> 1; lo = c - 6; hi = c + 6; } }
++  const drumH = drumKeys.length ? (mel.length ? Math.min(Math.max(drumKeys.length * 14, 36), H * 0.35) : H) : 0;
++  const melH = H - drumH, rowH = mel.length ? melH / (hi - lo + 1) : 0, drumRow = drumKeys.length ? drumH / drumKeys.length : 0;
++  const x = t => (t / dur) * W;
++  const rects = s.notes.map((n, i) => {
++    const drum = n.ch === 9;
++    const y = drum ? melH + drumKeys.indexOf(n.note) * drumRow + 1 : melH - (n.note - lo + 1) * rowH;
++    const h = drum ? Math.max(2, drumRow - 2) : Math.max(2, rowH - 1);
++    return { i, n, x: x(n.start), w: Math.max(2, x(n.end) - x(n.start)), y, h,
++             color: drum ? "var(--drum)" : `var(--c${n.ch % 8})`, opacity: 0.45 + 0.5 * (n.vel / 127),
++             label: `${drum ? (GM_DRUMS[n.note - GM_DRUM_FIRST] || "Drum") : noteName(n.note)}, bar ${n.bar} beat ${n.beat}. Click to play from here.` };
++  });
++  const beatTicks = s.barTicks / s.timeSig[0], lines = [], bars = [];
++  for (let t = 0, b = 0; s.tickToSec(t) <= dur + 1e-6; t += beatTicks, b++) {
++    const bar = b % s.timeSig[0] === 0, sec = s.tickToSec(t);
++    lines.push({ x: x(sec), bar });
++    if (bar) bars.push({ left: (sec / dur) * 100, n: b / s.timeSig[0] + 1 });
++  }
++  const octaves = [];
++  if (mel.length) for (let k = lo; k <= hi; k++) if (k % 12 === 0) octaves.push({ y: melH - (k - lo) * rowH, name: noteName(k) });
++  return { dur, rects, lines, bars, octaves, melH, divider: mel.length && drumKeys.length };
++});
++const playheadX = computed(() => (layout.value ? (props.position / layout.value.dur) * W : 0));
++const isActive = n => props.playing && props.position >= n.start && props.position < n.end;
++function onBackground(e) {
++  if (!layout.value) return;
++  const r = e.currentTarget.getBoundingClientRect();
++  emit("seek", Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * layout.value.dur);
++}
++</script>
++
++<template>
++  <div class="roll">
++    <div class="bars" aria-hidden="true">
++      <span v-for="b in layout?.bars || []" :key="b.n" :style="{ left: b.left + '%' }">{{ b.n }}</span>
++    </div>
++    <svg :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none" role="group"
++         aria-label="Piano roll. Click a note to play from it, or click anywhere to move the playhead." @click="onBackground">
++      <template v-if="layout">
++        <line v-for="(l, i) in layout.lines" :key="'g' + i" :x1="l.x" :x2="l.x" y1="0" :y2="H"
++              :stroke="l.bar ? 'var(--grid-strong)' : 'var(--grid)'" vector-effect="non-scaling-stroke" />
++        <line v-for="o in layout.octaves" :key="o.name" x1="0" :x2="W" :y1="o.y" :y2="o.y"
++              stroke="var(--grid)" vector-effect="non-scaling-stroke" />
++        <line v-if="layout.divider" x1="0" :x2="W" :y1="layout.melH" :y2="layout.melH"
++              stroke="var(--grid-strong)" vector-effect="non-scaling-stroke" />
++        <rect v-for="r in layout.rects" :key="r.i" class="note" :class="{ active: isActive(r.n) }"
++              :x="r.x" :y="r.y" :width="r.w" :height="r.h" :fill="r.color" :fill-opacity="isActive(r.n) ? 1 : r.opacity"
++              @click.stop="emit('play-note', r.n)"><title>{{ r.label }}</title></rect>
++        <line :x1="playheadX" :x2="playheadX" y1="0" :y2="H" stroke="var(--playhead)" stroke-width="2"
++              vector-effect="non-scaling-stroke" pointer-events="none" />
++      </template>
++    </svg>
++    <p v-if="!layout" class="empty">No notes to show yet.</p>
++  </div>
++</template>
++
++<style scoped>
++.roll { position: relative; background: var(--roll); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
++.bars { position: relative; height: 18px; border-bottom: 1px solid var(--grid); font-size: 0.72rem; color: var(--muted); }
++.bars span { position: absolute; top: 1px; transform: translateX(3px); }
++svg { display: block; width: 100%; height: 260px; cursor: crosshair; }
++.note { cursor: pointer; }
++.note:hover { stroke: var(--ink); stroke-width: 1px; vector-effect: non-scaling-stroke; }
++.note.active { stroke: var(--playhead); stroke-width: 2px; vector-effect: non-scaling-stroke; }
++.empty { position: absolute; inset: 18px 0 0; display: grid; place-items: center; margin: 0; color: var(--muted); }
++@media (max-width: 600px) { svg { height: 200px; } }
++</style>
+diff --git a/web/src/main.js b/web/src/main.js
+new file mode 100644
+index 0000000..de275e7
+--- /dev/null
++++ b/web/src/main.js
+@@ -0,0 +1,5 @@
++import { createApp } from "vue";
++import App from "./App.vue";
++import "./style.css";
++
++createApp(App).mount("#app");
+diff --git a/web/src/player.js b/web/src/player.js
+new file mode 100644
+index 0000000..b3b97d4
+--- /dev/null
++++ b/web/src/player.js
+@@ -0,0 +1,158 @@
++// player.js: plays a Song (from @da-dun/core csvToSong) with Tone.js synths.
++// Sounds are simple synthesized approximations of General MIDI families and
++// a synthesized drum kit; good enough for sketching, and fully self-contained.
++
++import { start, getTransport, getDraw, Limiter, Volume, Filter, PolySynth, MonoSynth,
++         MembraneSynth, NoiseSynth, Frequency } from "tone";
++
++// Only the parts of Tone.js we use (keeps the bundle small); tests pass a fake.
++const ToneModule = { start, getTransport, getDraw, Limiter, Volume, Filter, PolySynth, MonoSynth,
++                     MembraneSynth, NoiseSynth, Frequency };
++import { reactive } from "vue";
++
++// One preset per General MIDI family (program >> 3)
++const FAMILY = [
++  { osc: "triangle", a: 0.005, d: 0.9, s: 0.12, r: 0.4, cut: 5000, db: -8 },   // piano
++  { osc: "sine",     a: 0.002, d: 0.6, s: 0,    r: 0.5, cut: 8000, db: -6 },   // chromatic percussion
++  { osc: "square",   a: 0.01,  d: 0.1, s: 0.9,  r: 0.08, cut: 2600, db: -16 }, // organ
++  { osc: "sawtooth", a: 0.004, d: 0.7, s: 0.15, r: 0.2, cut: 3200, db: -14 },  // guitar
++  { osc: "triangle", a: 0.005, d: 0.5, s: 0.6,  r: 0.1, cut: 1400, db: -4 },   // bass
++  { osc: "sawtooth", a: 0.12,  d: 0.3, s: 0.85, r: 0.4, cut: 2400, db: -16 },  // strings
++  { osc: "sawtooth", a: 0.2,   d: 0.3, s: 0.85, r: 0.5, cut: 2200, db: -16 },  // ensemble
++  { osc: "sawtooth", a: 0.04,  d: 0.2, s: 0.75, r: 0.15, cut: 2200, db: -14 }, // brass
++  { osc: "square",   a: 0.03,  d: 0.2, s: 0.8,  r: 0.12, cut: 2000, db: -15 }, // reed
++  { osc: "sine",     a: 0.05,  d: 0.2, s: 0.9,  r: 0.15, cut: 6000, db: -6 },  // pipe
++  { osc: "square",   a: 0.005, d: 0.2, s: 0.8,  r: 0.12, cut: 4000, db: -16 }, // synth lead
++  { osc: "sawtooth", a: 0.4,   d: 0.5, s: 0.8,  r: 0.9, cut: 1500, db: -16 },  // synth pad
++  { osc: "triangle", a: 0.2,   d: 0.5, s: 0.7,  r: 0.9, cut: 3000, db: -10 },  // synth effects
++  { osc: "sawtooth", a: 0.004, d: 0.4, s: 0.1,  r: 0.2, cut: 3500, db: -14 },  // ethnic
++  { osc: "sine",     a: 0.002, d: 0.3, s: 0,    r: 0.2, cut: 8000, db: -6 },   // percussive
++  { osc: "triangle", a: 0.1,   d: 0.4, s: 0.6,  r: 0.5, cut: 3000, db: -10 },  // sound effects
++];
++
++const TOMS = { 41: 55, 43: 65, 45: 75, 47: 87, 48: 100, 50: 115 };
++
++function makeDrums(Tone, out) {
++  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 6, envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 } }).connect(out);
++  const tom = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 2, envelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.1 } }).connect(out);
++  const noise = (type, freq, decay, db) => {
++    const f = new Tone.Filter(freq, type).connect(out);
++    const n = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay, sustain: 0, release: 0.01 } }).connect(f);
++    n.volume.value = db;
++    return n;
++  };
++  const snare = noise("bandpass", 1900, 0.18, -6), clap = noise("bandpass", 1200, 0.14, -6);
++  const hat = noise("highpass", 7500, 0.05, -14), openHat = noise("highpass", 7000, 0.35, -16);
++  const cymbal = noise("highpass", 5000, 1.4, -16), ride = noise("highpass", 6500, 0.7, -18);
++  const perc = noise("bandpass", 800, 0.1, -8);
++  kick.volume.value = -2; tom.volume.value = -6;
++  return {
++    hit(note, time, vel) {
++      if (note === 35 || note === 36) kick.triggerAttackRelease(48, 0.4, time, vel);
++      else if (note === 38 || note === 40) snare.triggerAttackRelease(0.18, time, vel);
++      else if (note === 39) clap.triggerAttackRelease(0.14, time, vel);
++      else if (note === 37) perc.triggerAttackRelease(0.05, time, vel);
++      else if (note === 42 || note === 44) hat.triggerAttackRelease(0.05, time, vel);
++      else if (note === 46) openHat.triggerAttackRelease(0.35, time, vel);
++      else if (TOMS[note]) tom.triggerAttackRelease(TOMS[note], 0.35, time, vel);
++      else if (note === 49 || note === 52 || note === 55 || note === 57) cymbal.triggerAttackRelease(1.4, time, vel);
++      else if (note === 51 || note === 53 || note === 59) ride.triggerAttackRelease(0.7, time, vel);
++      else perc.triggerAttackRelease(0.1, time, vel);
++    },
++    dispose() { for (const x of [kick, tom, snare, clap, hat, openHat, cymbal, ride, perc]) x.dispose(); },
++  };
++}
++
++/**
++ * Create a player. `state` is reactive: {playing, position, duration}.
++ * play(from) starts at `from` seconds; seek(t) moves (and keeps playing if
++ * it was); stop() pauses where it is; load(song) swaps the song.
++ * `Tone` can be injected (tests use a fake one).
++ */
++export function createPlayer({ Tone = ToneModule, canPlay: forceCanPlay } = {}) {
++  const state = reactive({ playing: false, position: 0, duration: 0, error: "" });
++  const canPlay = forceCanPlay ?? (typeof window !== "undefined" && !!(window.AudioContext || window.webkitAudioContext));
++  let song = null, out = null, voices = new Map(), drums = null, raf = 0;
++
++  function ensureOutput() {
++    if (out) return;
++    const limiter = new Tone.Limiter(-1).toDestination();
++    out = new Tone.Volume(-4).connect(limiter);
++  }
++  function voiceFor(ch, prog) {
++    const key = ch + ":" + prog;
++    if (!voices.has(key)) {
++      const p = FAMILY[(prog >> 3) & 15];
++      const v = new Tone.PolySynth(Tone.MonoSynth, {
++        oscillator: { type: p.osc },
++        envelope: { attack: p.a, decay: p.d, sustain: p.s, release: p.r },
++        filter: { type: "lowpass", rolloff: -12, Q: 0.5 },
++        filterEnvelope: { attack: 0.001, decay: p.d, sustain: 0.6, release: p.r, baseFrequency: p.cut / 2, octaves: 1 },
++      }).connect(out);
++      v.maxPolyphony = 48;
++      v.volume.value = p.db;
++      voices.set(key, v);
++    }
++    return voices.get(key);
++  }
++  function tick() {
++    state.position = Math.min(Tone.getTransport().seconds, state.duration);
++    if (state.playing) raf = requestAnimationFrame(tick);
++  }
++
++  async function play(from = state.position) {
++    if (!song || !song.notes.length || !canPlay) return;
++    const started = Tone.start();          // must begin inside the click
++    halt();
++    try { await started; } catch (e) { state.error = "Your browser blocked audio. Click Play again."; return; }
++    state.error = "";
++    ensureOutput();
++    if (!drums && song.notes.some(n => n.ch === 9)) drums = makeDrums(Tone, out);
++    if (from >= song.duration - 0.01) from = 0;
++    const tr = Tone.getTransport();
++    for (const n of song.notes) {
++      if (n.end <= from + 0.001) continue;
++      const at = Math.max(n.start, from);
++      if (n.ch === 9) {
++        if (n.start < from - 0.001) continue;          // don't replay drum hits we jumped into
++        tr.schedule(time => drums.hit(n.note, time, n.vel / 127), at);
++      } else {
++        const v = voiceFor(n.ch, n.prog), freq = Tone.Frequency(n.note, "midi").toFrequency(), len = n.end - at;
++        tr.schedule(time => v.triggerAttackRelease(freq, len, time, n.vel / 127), at);
++      }
++    }
++    tr.scheduleOnce(time => Tone.getDraw().schedule(() => finish(), time), song.duration + 0.05);
++    tr.start("+0.05", from);
++    state.position = from;
++    state.playing = true;
++    cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
++  }
++  function halt() {
++    const tr = Tone.getTransport();
++    tr.stop(); tr.cancel(0);
++    for (const v of voices.values()) v.releaseAll();
++    cancelAnimationFrame(raf);
++  }
++  function stop() {
++    if (!state.playing) return;
++    const pos = Tone.getTransport().seconds;
++    halt();
++    state.playing = false;
++    state.position = Math.min(pos, state.duration);
++  }
++  function finish() { halt(); state.playing = false; state.position = 0; }
++  function seek(t) {
++    t = Math.max(0, Math.min(t, state.duration));
++    if (state.playing) play(t); else state.position = t;
++  }
++  function load(next) {
++    const was = state.playing, at = state.position;
++    if (was) { halt(); state.playing = false; }
++    song = next;
++    state.duration = next ? next.duration : 0;
++    state.position = Math.min(at, state.duration);
++    if (state.position >= state.duration) state.position = 0;
++    if (was && next) play(state.position);
++  }
++  return { state, canPlay, play, stop, seek, load, toggle: () => (state.playing ? stop() : play()) };
++}
+diff --git a/web/src/sketchbook.js b/web/src/sketchbook.js
+new file mode 100644
+index 0000000..01bf561
+--- /dev/null
++++ b/web/src/sketchbook.js
+@@ -0,0 +1,353 @@
++// sketchbook.js: the app's state and logic as one Vue composable.
++//
++// Storage: every sketch, every edited example and every hum history is a "doc":
++//   sk-<id>          {type: "sketch", text, title, updated, by}
++//   draft-<example>  {type: "draft", example, text, title, updated, by}
++//   hum-<sketchDoc>  {type: "hum", sketch, items: [{id, request, explanation, notation, status, ...}]}
++// Docs always live in localStorage. Inside a claude.ai artifact they're also
++// synced to the artifact database, in the viewer's private collection
++// data/users/<id>, where Claude can read and write them ("by": "claude").
++
++import { ref, shallowRef, computed, reactive } from "vue";
++import { notate, csvToMidi, csvToSong, hum, makeZip } from "@da-dun/core";
++import GUIDE from "../../docs/notation.txt?raw";
++import { capability } from "./claude.js";
++import { createPlayer } from "./player.js";
++
++export { GUIDE };
++export const EXAMPLES = Object.entries(import.meta.glob("../../songs/*.txt", { query: "?raw", import: "default", eager: true }))
++  .sort(([a], [b]) => a.localeCompare(b))
++  .map(([path, text]) => ({ id: path.split("/").pop().replace(/\.txt$/, "").replace(/^\d+-/, ""), text }));
++const NEW_SKETCH = "title New sketch\ntempo 100\ntime 4/4\n\npiano: c4 d e f | g1 |\n";
++export const titleOf = text => (String(text).match(/^\s*title\s+(.+)$/im) || [, "Untitled"])[1].trim();
++const now = () => new Date().toISOString();
++
++// ---- validation of anything read from storage (it may come from elsewhere) ----
++const validItem = i => i && typeof i === "object" && typeof i.id === "string" && typeof i.request === "string" &&
++  typeof i.notation === "string" && (i.explanation === undefined || typeof i.explanation === "string");
++const validDoc = d => d && typeof d === "object" && (
++  (typeof d.text === "string" && d.text.length < 200000 &&
++   (d.type === "sketch" || (d.type === "draft" && EXAMPLES.some(e => e.id === d.example)))) ||
++  (d.type === "hum" && typeof d.sketch === "string" && Array.isArray(d.items) && d.items.length <= 50 && d.items.every(validItem)));
++
++// ---- localStorage ----
++const local = {
++  get(k) { try { return JSON.parse(localStorage.getItem("sketchbook:" + k)); } catch (e) { return null; } },
++  set(k, v) { try { localStorage.setItem("sketchbook:" + k, JSON.stringify(v)); } catch (e) {} },
++  del(k) { try { localStorage.removeItem("sketchbook:" + k); } catch (e) {} },
++};
++function loadLocalDocs() {
++  let d = local.get("docs");
++  if (!d || typeof d !== "object") {            // migrate the very first version's format
++    d = {};
++    for (const s of local.get("sketches") || []) d["sk-" + s.id] = { type: "sketch", text: s.text, title: titleOf(s.text), by: "page" };
++    for (const e of EXAMPLES) {
++      const t = local.get("draft:" + e.id);
++      if (typeof t === "string") d["draft-" + e.id] = { type: "draft", example: e.id, text: t, title: titleOf(t), by: "page" };
++    }
++    local.set("docs", d);
++  }
++  return new Map(Object.entries(d).filter(([, v]) => validDoc(v)));
++}
++
++function compileText(text) {
++  try {
++    const r = notate(text);
++    const m = csvToMidi(r.csv);
++    const song = csvToSong(r.csv);
++    return { ok: true, csv: r.csv, bytes: m.bytes, song, warnings: [...r.warnings, ...m.warnings],
++             bars: Math.ceil(r.ticks / r.barTicks), notes: r.notes };
++  } catch (e) {
++    return { ok: false, error: e.message, line: e.line || null, warnings: [] };
++  }
++}
++
++export function useSketchbook() {
++  const player = createPlayer();
++  const docs = shallowRef(loadLocalDocs());
++  const setDocs = m => { docs.value = m; local.set("docs", Object.fromEntries(m)); };
++  const currentKey = ref(null);
++  const text = ref("");
++  const compiled = shallowRef(compileText(""));
++  const syncNote = ref("Edits are saved in this browser as you type.");
++  const banner = shallowRef(null);                // {text, actions: [{label, fn}]}
++  const humState = reactive({ available: false, busy: false, note: "", proposal: null });
++  let synced = "", saveTimer = 0, compileTimer = 0, previewing = false, remote = null, humCtl = null;
++
++  // ---- menu entries ----
++  const entries = computed(() => {
++    const sketches = [...docs.value.entries()].filter(([, d]) => d.type === "sketch").sort((a, b) => a[0].localeCompare(b[0]));
++    return [
++      ...EXAMPLES.map(e => {
++        const d = docs.value.get("draft-" + e.id);
++        return { key: "ex:" + e.id, docId: "draft-" + e.id, example: e.id, original: e.text, text: d ? d.text : e.text };
++      }),
++      ...sketches.map(([id, d]) => ({ key: id, docId: id, sketch: true, text: d.text })),
++    ];
++  });
++  const current = computed(() => entries.value.find(e => e.key === currentKey.value) || entries.value[0]);
++  const menu = computed(() => entries.value.map(e => ({ key: e.key, group: e.example ? "Examples" : "My sketches",
++                                                        title: titleOf(e.key === currentKey.value ? text.value : e.text) })));
++
++  // ---- editor ----
++  function setEditor(t) {
++    text.value = t; synced = t;
++    compileNow();
++  }
++  function compileNow() {
++    clearTimeout(compileTimer); compileTimer = 0;
++    const c = compileText(text.value);
++    compiled.value = c;
++    if (c.ok && !previewing) player.load(c.song);
++  }
++  function onInput(t) {
++    text.value = t;
++    clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 700);
++    clearTimeout(compileTimer); compileTimer = setTimeout(compileNow, 300);
++  }
++  function open(key) {
++    if (saveTimer) saveNow();
++    currentKey.value = key;
++    if (!entries.value.some(e => e.key === key)) currentKey.value = entries.value[0].key;
++    local.set("last", currentKey.value);
++    closeProposal(false);
++    setEditor(current.value.text);
++    const last = humItems().slice(-1)[0];
++    if (last && last.status === "open") showProposal(last);
++  }
++  function saveNow() {
++    clearTimeout(saveTimer); saveTimer = 0;
++    const c = current.value; if (!c) return;
++    const m = new Map(docs.value);
++    if (c.example && text.value === c.original) m.delete(c.docId);
++    else m.set(c.docId, { type: c.example ? "draft" : "sketch", ...(c.example ? { example: c.example } : {}),
++                          text: text.value, title: titleOf(text.value), updated: now(), by: "page" });
++    synced = text.value;
++    setDocs(m); pushRemote(c.docId);
++  }
++  function newSketch() {
++    const id = "sk-" + Date.now().toString(36);
++    const m = new Map(docs.value);
++    m.set(id, { type: "sketch", text: NEW_SKETCH, title: titleOf(NEW_SKETCH), updated: now(), by: "page" });
++    setDocs(m); pushRemote(id); open(id);
++  }
++  function revert() {
++    const c = current.value;
++    if (!c.example || text.value === c.original) return;
++    if (!confirm("Throw away your edits to this example?")) return;
++    setEditor(c.original); saveNow();
++  }
++  function remove() {
++    const c = current.value;
++    if (!c.sketch || !confirm(`Delete “${titleOf(text.value)}”?`)) return;
++    clearTimeout(saveTimer); saveTimer = 0;
++    const m = new Map(docs.value); m.delete(c.docId); m.delete("hum-" + c.docId);
++    setDocs(m); pushRemote(c.docId); pushRemote("hum-" + c.docId);
++    open(entries.value[0].key);
++  }
++
++  // ---- banner ----
++  const showBanner = (t, actions = [{ label: "OK" }]) => { banner.value = { text: t, actions }; };
++  const bannerAction = a => { banner.value = null; if (a.fn) a.fn(); };
++
++  // ---- sync with the artifact database ----
++  async function connect() {
++    const [db, user] = await Promise.all([capability("db"), capability("user")]);
++    if (!db || !user) return;
++    let uid = null;
++    try { uid = await user.id(); } catch (e) {}
++    if (!uid) return;
++    remote = { col: db.collection("data/users/" + uid), writing: new Map() };
++    let first = true;
++    remote.col.onSnapshot(snap => {
++      const isFirst = first; first = false;
++      onRemote(snap, isFirst);
++      syncNote.value = "Saved to your artifact, so Claude can see your sketches.";
++    }, () => {
++      remote = null;
++      syncNote.value = "Syncing with the artifact stopped; edits are saved in this browser.";
++    });
++  }
++  async function pushRemote(docId) {
++    if (!remote) return;
++    const w = remote.writing;
++    if (w.has(docId)) { w.set(docId, "again"); return; }
++    try {
++      do {
++        w.set(docId, true);
++        const d = docs.value.get(docId);
++        if (d) await remote.col.doc(docId).set(d); else await remote.col.doc(docId).delete();
++      } while (w.get(docId) === "again");
++    } catch (e) {
++      syncNote.value = e && e.code === "quota_exceeded"
++        ? "The artifact’s storage is full; delete some sketches. Edits are saved in this browser."
++        : "Couldn’t save to the artifact just now; edits are saved in this browser.";
++    } finally { w.delete(docId); }
++  }
++  function onRemote(snap, isFirst) {
++    const next = new Map();
++    const cid = current.value && current.value.docId;
++    let cur = null;
++    for (const d of snap.docs) {
++      const v = d.data();
++      if (!validDoc(v)) continue;
++      next.set(d.id, v);
++      if (d.id === cid) cur = { v, pending: d.metadata.hasPendingWrites };
++    }
++    const busy = cid && (saveTimer || (remote && remote.writing.has(cid)));
++    if (busy && docs.value.has(cid)) next.set(cid, docs.value.get(cid));
++    const upload = [];
++    if (isFirst) for (const [id, v] of docs.value) if (!next.has(id)) { next.set(id, v); upload.push(id); }
++    const c = current.value;
++    setDocs(next);
++    upload.forEach(pushRemote);
++
++    if (!c || busy || (cur && cur.pending)) return;
++    const incoming = cur ? cur.v.text : (c.example ? c.original : null);
++    if (incoming === null) {
++      showBanner("This sketch was deleted elsewhere.");
++      open(entries.value[0].key);
++      return;
++    }
++    if (incoming !== text.value) {
++      const who = cur && cur.v.by === "claude" ? "Claude" : "Another window";
++      if (text.value === synced) {
++        setEditor(incoming);
++        showBanner(`${who} updated this sketch.`);
++      } else {
++        showBanner(`${who} changed this sketch while you were editing.`, [
++          { label: "Load it", fn: () => setEditor(incoming) },
++          { label: "Keep mine", fn: () => saveNow() },
++        ]);
++      }
++    }
++  }
++
++  // ---- hum box ----
++  const humItems = (sketch = current.value.docId) => (docs.value.get("hum-" + sketch) || { items: [] }).items;
++  const humHistory = computed(() => (current.value ? humItems().slice().reverse() : []));
++  function saveHumItems(items, sketch = current.value.docId) {
++    const id = "hum-" + sketch, m = new Map(docs.value);
++    if (items.length) m.set(id, { type: "hum", sketch, items: items.slice(-20), updated: now() });
++    else m.delete(id);
++    setDocs(m); pushRemote(id);
++  }
++  const setHumStatus = (itemId, status) => saveHumItems(humItems().map(i => (i.id === itemId ? { ...i, status } : i)));
++  function showProposal(item) {
++    humState.proposal = { ...item, answerOnly: item.notation.trim() === text.value.trim() };
++    const n = (item.problems || []).length;
++    humState.note = n
++      ? `Heads-up: the converter still found ${n} problem${n === 1 ? "" : "s"}; you’ll see ${n === 1 ? "it" : "them"} under the editor if you use this.`
++      : item.repaired ? "Claude fixed a mistake in its first try." : "";
++  }
++  function closeProposal(restorePlayer = true) {
++    humState.proposal = null; humState.note = "";
++    if (previewing) {
++      previewing = false;
++      if (restorePlayer && compiled.value.ok) player.load(compiled.value.song);
++    }
++  }
++  const HUM_ERRORS = {
++    cancelled: "Stopped.",
++    not_granted: "The hum box needs your permission to ask Claude. Reload the page to be asked again.",
++    rate_limited: "Claude is busy, or you’ve reached a usage limit. Try again in a little while.",
++    refused: "Claude declined that request. Try describing it differently.",
++    invalid_json: "Claude’s answer couldn’t be read. Try again.",
++    empty_completion: "Claude’s answer came back empty. Try again.",
++    prompt_too_large: "This sketch is too long to send in one go.",
++    session_expired: "Your session expired. Reload the page and try again.",
++  };
++  const humError = e => HUM_ERRORS[e && e.code] ||
++    (e && e.code ? `Asking Claude isn’t working right now (${e.code}).` : (e && e.message) || "Something went wrong.");
++  async function humAsk(request) {
++    request = request.trim();
++    const sample = await capability("sample");
++    if (!request || !sample || humCtl) return false;
++    const ctl = humCtl = new AbortController();
++    humState.busy = true; humState.proposal = null; humState.note = "Thinking…";
++    const base = text.value, sketch = current.value.docId;
++    try {
++      const r = await hum({ notation: base, request, guide: GUIDE, repairs: 1,
++                            ask: p => sample.json(p, { signal: ctl.signal, cache: false }) });
++      const item = { id: Date.now().toString(36), request, explanation: r.explanation, notation: r.notation,
++                     problems: r.problems, repaired: r.attempts > 1, at: now(),
++                     status: r.notation.trim() === base.trim() ? "answer" : "open" };
++      saveHumItems([...humItems(sketch), item], sketch);   // kept even if you switched sketches meanwhile
++      if (current.value.docId === sketch) showProposal(item); else humState.note = "";
++      return true;
++    } catch (e) {
++      humState.note = humError(e);
++      return false;
++    } finally {
++      humCtl = null; humState.busy = false;
++    }
++  }
++  const humStop = () => { if (humCtl) humCtl.abort(); };
++  function humPreview() {
++    const p = humState.proposal; if (!p) return;
++    const c = compileText(p.notation);
++    if (!c.ok) { humState.note = c.error; return; }
++    previewing = true;
++    player.load(c.song);
++    player.play(0);
++  }
++  function humUse() {
++    const p = humState.proposal; if (!p) return;
++    const before = text.value;
++    setHumStatus(p.id, "used");
++    closeProposal(false);
++    setEditor(p.notation); saveNow();
++    showBanner("Using Claude’s version now.", [
++      { label: "Undo", fn: () => { setEditor(before); saveNow(); } },
++      { label: "OK" },
++    ]);
++  }
++  function humDiscard() {
++    const p = humState.proposal;
++    if (p && p.status === "open") setHumStatus(p.id, "dropped");
++    closeProposal();
++  }
++  function humForget() {
++    if (!confirm("Forget all of Claude’s earlier answers for this sketch?")) return;
++    closeProposal(); saveHumItems([]);
++  }
++
++  // ---- saving files ----
++  const downloadsP = capability("downloads");
++  const zipMidi = ref(false);
++  downloadsP.then(d => { zipMidi.value = !!d; });
++  async function saveFile(kind) {
++    const c = compiled.value;
++    if (kind !== "txt" && !c.ok) { showBanner("Fix the error first; there’s nothing to save yet."); return; }
++    const name = (titleOf(text.value).replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "sketch").toLowerCase();
++    let filename = `${name}.${kind}`;
++    let data = kind === "mid" ? c.bytes : kind === "csv" ? c.csv : text.value;
++    const downloads = await downloadsP;
++    if (downloads) {
++      if (kind === "mid") { data = makeZip([{ name: filename, data }]); filename = `${name}-midi.zip`; }
++      try { await downloads.save({ filename, data: data instanceof Uint8Array ? data.slice() : data }); }
++      catch (e) { if (!e || e.code !== "declined") showBanner(`Couldn’t save the file (${(e && e.code) || "error"}).`); }
++      return;
++    }
++    const blob = new Blob([data], { type: kind === "mid" ? "audio/midi" : "text/plain" });
++    const a = document.createElement("a");
++    a.href = URL.createObjectURL(blob); a.download = filename;
++    document.body.appendChild(a); a.click(); a.remove();
++    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
++  }
++
++  // ---- start ----
++  function start() {
++    open(local.get("last") || "ex:" + EXAMPLES[0].id);
++    connect();
++    capability("sample").then(s => { humState.available = !!s; });
++    window.addEventListener("beforeunload", () => { if (saveTimer) saveNow(); });
++  }
++
++  return {
++    player, text, compiled, current, currentKey, menu, syncNote, banner, humState, humHistory, zipMidi,
++    start, open, onInput, compileNow, newSketch, revert, remove, saveFile, bannerAction,
++    humAsk, humStop, humPreview, humUse, humDiscard, humForget, showProposal,
++    get previewing() { return previewing; },
++  };
++}
+diff --git a/web/src/style.css b/web/src/style.css
+new file mode 100644
+index 0000000..f44bc11
+--- /dev/null
++++ b/web/src/style.css
+@@ -0,0 +1,71 @@
++:root {
++  --bg: #F3F5F8; --ink: #17202E; --muted: #5B6676; --panel: #FFFFFF; --line: #D5DCE4;
++  --sel: #E4E9EF; --accent: #2F5BD3; --accent-ink: #FFFFFF; --ok: #2E7D4F; --warn: #A15C00; --err: #C0362C;
++  --c0: #1F8A8A; --c1: #4A55A2; --c2: #C08A1E; --c3: #8E4585; --c4: #5A8F3A; --c5: #3D6B8F; --c6: #B5543A; --c7: #C2577A; --drum: #6B7380;
++  --roll: #FFFFFF; --grid: #E6EBF0; --grid-strong: #C9D2DC; --playhead: #E23D28;
++  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
++  color-scheme: light; box-sizing: border-box;
++  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
++}
++@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
++  --bg: #121821; --ink: #E4E9F0; --muted: #93A0B2; --panel: #1A222E; --line: #2B3645;
++  --c0: #4CC2C2; --c1: #8D97E8; --c2: #E8B54A; --c3: #D07CC4; --c4: #8CC66A; --c5: #6FA4CF; --c6: #E8866A; --c7: #EE8AAE; --drum: #A3ACB9;
++  --roll: #0F141C; --grid: #19212C; --grid-strong: #2A3443; --playhead: #FF5A44;
++  --sel: #263142; --accent: #7EA2FF; --accent-ink: #0E1420; --ok: #6CCB93; --warn: #F0B45A; --err: #FF7B6E;
++  color-scheme: dark; } }
++:root[data-theme="dark"] {
++  --bg: #121821; --ink: #E4E9F0; --muted: #93A0B2; --panel: #1A222E; --line: #2B3645;
++  --c0: #4CC2C2; --c1: #8D97E8; --c2: #E8B54A; --c3: #D07CC4; --c4: #8CC66A; --c5: #6FA4CF; --c6: #E8866A; --c7: #EE8AAE; --drum: #A3ACB9;
++  --roll: #0F141C; --grid: #19212C; --grid-strong: #2A3443; --playhead: #FF5A44;
++  --sel: #263142; --accent: #7EA2FF; --accent-ink: #0E1420; --ok: #6CCB93; --warn: #F0B45A; --err: #FF7B6E;
++  color-scheme: dark; }
++*, *::before, *::after { box-sizing: inherit; }
++html { scroll-padding-top: env(safe-area-inset-top, 0px); }
++body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
++main { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
++.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
++.bar .spacer { flex: 1; }
++select, button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
++select { max-width: 100%; }
++button:hover, select:hover { border-color: var(--muted); }
++button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
++button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
++textarea.editor {
++  display: block; width: 100%; min-height: 220px; resize: vertical; padding: 12px 14px;
++  font: 0.92rem/1.6 var(--mono); color: var(--ink); background: var(--panel);
++  border: 1px solid var(--line); border-radius: 8px; tab-size: 2; white-space: pre; overflow: auto;
++}
++.status { min-height: 1.6em; margin: 8px 0 16px; font-size: 0.9rem; }
++.status .ok { color: var(--ok); }
++.status .err { color: var(--err); font-weight: 600; }
++.status ul { margin: 4px 0 0; padding: 0; list-style: none; }
++.status li button { border: 0; background: none; padding: 1px 0; color: var(--warn); text-align: left; cursor: pointer; font: inherit; }
++.status li button:hover { text-decoration: underline; }
++.tabs { display: flex; gap: 4px; margin: 22px 0 8px; }
++.tabs button { border: 0; background: transparent; color: var(--muted); font-weight: 500; }
++.tabs button[aria-selected="true"] { background: var(--sel); color: var(--ink); }
++pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 420px; font: 0.82rem/1.55 var(--mono); margin: 0; }
++.banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 0.9rem; }
++.banner[hidden] { display: none; }
++.banner span { flex: 1; min-width: 12em; }
++.hum { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
++.hum[hidden] { display: none; }
++.hum label { display: block; font-weight: 600; margin-bottom: 6px; }
++.hum-row { display: flex; gap: 8px; align-items: flex-start; }
++.hum-row textarea { flex: 1; min-height: 0; white-space: pre-wrap; font: inherit; padding: 8px 10px; resize: vertical; }
++.hum-buttons { display: flex; flex-direction: column; gap: 6px; }
++.hum-note { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
++#hum-explain { margin: 8px 0; }
++#hum-preview { max-height: 220px; }
++#hum-history { margin-top: 8px; font-size: 0.9rem; }
++#hum-history summary { cursor: pointer; color: var(--muted); }
++#hum-history ol { margin: 6px 0 8px; padding-left: 1.4em; }
++#hum-history li { margin: 2px 0; }
++#hum-history li button { border: 0; background: none; padding: 0; color: var(--accent); text-align: left; cursor: pointer; }
++#hum-history li button:hover { text-decoration: underline; }
++#hum-history li span { color: var(--muted); font-size: 0.8rem; }
++@media (max-width: 560px) { .hum-row { flex-direction: column; align-items: stretch; } .hum-buttons { flex-direction: row; } }
++.hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
++kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
++
++.err { color: var(--err); }
+diff --git a/web/test/player.test.js b/web/test/player.test.js
+new file mode 100644
+index 0000000..769a80e
+--- /dev/null
++++ b/web/test/player.test.js
+@@ -0,0 +1,84 @@
++// The player with a fake Tone.js: what gets scheduled, and when.
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { notate, csvToSong } from "@da-dun/core";
++
++globalThis.requestAnimationFrame ??= () => 0;
++globalThis.cancelAnimationFrame ??= () => {};
++const { createPlayer } = await import("../src/player.js");
++
++function fakeTone() {
++  const log = [];
++  class Node { constructor() { this.volume = { value: 0 }; } connect() { return this; } toDestination() { return this; } dispose() {} }
++  class Synth extends Node {
++    triggerAttackRelease(...a) { log.push(["note", ...a]); }
++    releaseAll() { log.push(["releaseAll"]); }
++  }
++  const transport = {
++    seconds: 0, events: [],
++    schedule(fn, at) { this.events.push({ fn, at }); }, scheduleOnce(fn, at) { this.events.push({ fn, at, end: true }); },
++    start(when, offset) { this.seconds = offset; log.push(["start", offset]); },
++    stop() { log.push(["stop"]); }, cancel() { this.events = []; },
++    run() { for (const e of this.events.slice().sort((a, b) => a.at - b.at)) e.fn(e.at); },   // fire everything
++  };
++  return { log, transport, Tone: {
++    start: async () => {}, getTransport: () => transport, getDraw: () => ({ schedule: fn => fn() }),
++    Limiter: Node, Volume: Node, Filter: Node, PolySynth: Synth, MonoSynth: Synth, MembraneSynth: Synth, NoiseSynth: Synth,
++    Frequency: n => ({ toFrequency: () => 440 * 2 ** ((n - 69) / 12) }),
++  } };
++}
++const songOf = t => csvToSong(notate(t).csv);
++
++test("plays every note, then stops at the end", async () => {
++  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
++  p.load(songOf("tempo 120\npiano: c4 d e f |"));
++  await p.play(0);
++  assert.equal(p.state.playing, true);
++  assert.equal(f.transport.events.filter(e => !e.end).length, 4);
++  f.transport.run();
++  const notes = f.log.filter(l => l[0] === "note");
++  assert.deepEqual(notes.map(n => Math.round(n[1])), [262, 294, 330, 349]);   // C4 D4 E4 F4 in Hz
++  assert.equal(p.state.playing, false);                                        // the end event stopped it
++  assert.equal(p.state.position, 0);
++});
++
++test("starting mid-song skips past notes and shortens a held one", async () => {
++  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
++  p.load(songOf("tempo 60\npiano: c1 | d4 e f g |"));    // c lasts ~4 s, d starts at 4 s
++  await p.play(2);
++  const ev = f.transport.events.filter(e => !e.end);
++  assert.equal(ev.length, 5);                       // held C (from 2 s) + d e f g
++  assert.equal(ev[0].at, 2);
++  f.transport.run();
++  const first = f.log.find(l => l[0] === "note");
++  assert.ok(first[2] > 1.9 && first[2] < 2, "held C plays only its remaining ~1.97 s");
++  assert.deepEqual(f.log.find(l => l[0] === "start"), ["start", 2]);
++});
++
++test("drum hits you jumped past are not replayed", async () => {
++  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
++  p.load(songOf("tempo 120\nkick: |x...x...x...x...|"));   // a hit on every beat (0.5 s apart)
++  await p.play(0.6);
++  assert.equal(f.transport.events.filter(e => !e.end).length, 2);    // the hits at 1.0 s and 1.5 s
++});
++
++test("seek while playing restarts there; stop keeps the position", async () => {
++  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
++  p.load(songOf("tempo 120\npiano: c4 d e f | g a b c |"));
++  await p.play(0);
++  p.seek(2.5);
++  await new Promise(r => setTimeout(r, 0));
++  assert.deepEqual(f.log.filter(l => l[0] === "start").map(l => l[1]), [0, 2.5]);
++  f.transport.seconds = 3.1;
++  p.stop();
++  assert.equal(p.state.playing, false);
++  assert.equal(p.state.position, 3.1);
++});
++
++test("no audio: play does nothing", async () => {
++  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: false });
++  p.load(songOf("piano: c"));
++  await p.play(0);
++  assert.equal(p.state.playing, false);
++  assert.equal(f.log.length, 0);
++});
+diff --git a/web/vite.config.js b/web/vite.config.js
+new file mode 100644
+index 0000000..0d9501e
+--- /dev/null
++++ b/web/vite.config.js
+@@ -0,0 +1,10 @@
++import { defineConfig } from "vite";
++import vue from "@vitejs/plugin-vue";
++import { viteSingleFile } from "vite-plugin-singlefile";
++
++// One self-contained HTML file (JS and CSS inlined, nothing loaded from a CDN),
++// so the same build works opened from disk and published as a claude.ai artifact.
++export default defineConfig({
++  plugins: [vue(), viteSingleFile()],
++  build: { outDir: "../dist", emptyOutDir: true, assetsInlineLimit: 100000000 },
++});
+-- 
+2.43.0
+

@@ -14,7 +14,7 @@ const CHANNEL = {
 };
 
 /** Split one CSV record into fields. Quoted fields become {bytes}. */
-function splitRecord(s) {
+export function splitRecord(s) {
   const fields = [];
   let i = 0;
   while (i <= s.length) {

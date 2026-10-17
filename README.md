@@ -16,7 +16,8 @@ piano: a'4 R | e R | r4 e8t f# g# a4 b8t c# b | a8 g# a2. |
 The pipeline keeps CSV as a real, inspectable middle step:
 
 ```
-notation ──[src/notate.js]──▶ midicsv CSV ──[src/csvmidi.js]──▶ MIDI file ──▶ player
+notation ──[core/src/notate.js]──▶ midicsv CSV ──[core/src/csvmidi.js]──▶ MIDI file
+                                              └──[core/src/song.js]──▶ player, piano roll
 ```
 
 The CSV format is the one from John Walker's
@@ -26,30 +27,35 @@ record types we support.
 
 ## Quick start
 
-No dependencies; Node 18 or newer.
+Node 20.19+ (or 22.12+). The repository is an npm workspace with two packages:
+`core` (no dependencies) and `web` (Vue, Vite, Tone.js).
 
 ```sh
-npm run build        # writes dist/sketchbook.html
-npm run watch        # same, rebuilding on every change
-npm test             # parity tests (see below)
+npm install
+npm run dev          # editor at http://localhost:5173, with hot reload
+npm run build        # one self-contained file: dist/index.html
+npm test             # core parity tests + player tests
 ```
 
-Open `dist/sketchbook.html` in a browser: type in the editor, press
-**Ctrl+Enter** (or **Cmd+Enter**) to play from the start. Warnings show up as you
-type; click one to jump to its line. Edits and new sketches are saved in your
-browser's local storage. The page needs internet access once to load the player
-scripts from jsDelivr; everything else is inlined.
+`dist/index.html` has everything inlined (no CDN), so it works opened straight
+from disk and is also what gets published as the claude.ai artifact.
+
+In the editor, press **Ctrl+Enter** (or **Cmd+Enter**) to play from the start
+and **Space** to play and stop. Warnings show up as you type; click one to jump
+to its line. In the piano roll, click a note to play from that note, or click
+anywhere to move the playhead. Edits and new sketches are saved in your
+browser's local storage.
 
 ### Command line
 
 ```sh
-node src/cli.js songs/01-our-piece.txt              # writes songs/01-our-piece.mid
-node src/cli.js song.txt -o out.mid
-node src/cli.js song.txt --csv                     # print the CSV instead
-node src/cli.js some.csv -o some.mid               # CSV straight to MIDI, like csvmidi
+node core/src/cli.js songs/01-our-piece.txt          # writes songs/01-our-piece.mid
+node core/src/cli.js song.txt -o out.mid
+node core/src/cli.js song.txt --csv                  # print the CSV instead
+node core/src/cli.js some.csv -o some.mid            # CSV straight to MIDI, like csvmidi
 ```
 
-`npm link` makes it available as `da-dun`.
+`npm link -w core` makes it available as `da-dun`.
 
 ## Inside a claude.ai artifact
 
@@ -76,7 +82,7 @@ and Claude writes it into the sketch. You can play the proposal, use it (with
 Undo), or discard it. It uses the artifact `sample` capability, so it runs on
 the viewer's own Claude account and asks for permission the first time.
 
-All the logic is in `src/hum.js` and doesn't depend on the page or on a
+All the logic is in `core/src/hum.js` and doesn't depend on the page or on a
 particular model: give it an `ask(prompt)` function that returns the model's
 reply parsed as JSON. It builds the prompt (rules for reading da-duns, the
 notation guide, the current sketch and the request), checks the answer with
@@ -85,7 +91,7 @@ with the Anthropic API:
 
 ```js
 import { readFileSync } from "node:fs";
-import { hum } from "./src/hum.js";
+import { hum } from "@da-dun/core";   // or "./core/src/hum.js"
 
 const ask = async prompt => {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -127,18 +133,21 @@ are borrowed from [LilyPond](https://lilypond.org/).
 ## Layout
 
 ```
-src/gm.js          General MIDI instrument and drum names, short aliases
-src/notate.js      notation -> CSV
-src/csvmidi.js     CSV -> MIDI bytes (subset of fourmilab csvmidi)
-src/zip.js         tiny ZIP writer (for hosts that won't download .mid)
-src/hum.js         the hum box: prompt, answer checking, repair round (works with any LLM)
-src/cli.js         command line
-web/index.html     editor page template; build.js inlines src/ and web/app.js
-web/app.js         editor logic: storage, sync, playback, saving
-docs/notation.txt  notation guide
-songs/             example songs, shown in the page's menu (number prefix = order)
-perl/              the original Perl implementation, kept as the reference
-test/              parity tests and fixtures
+core/src/notate.js     notation -> CSV
+core/src/csvmidi.js    CSV -> MIDI bytes (subset of fourmilab csvmidi)
+core/src/song.js       CSV -> timed notes, for players and piano rolls
+core/src/hum.js        the hum box: prompt, answer checking, repair round (any LLM)
+core/src/zip.js        tiny ZIP writer (for hosts that won't download .mid)
+core/src/gm.js         General MIDI instrument and drum names, short aliases
+core/src/cli.js        command line
+core/test/             parity tests and fixtures
+web/src/App.vue        the editor page
+web/src/sketchbook.js  app state: storage and sync, compiling, hum box, saving
+web/src/player.js      our player: Tone.js synths and a synthesized drum kit
+web/src/components/    PianoRoll.vue (clickable), HumBox.vue
+docs/notation.txt      notation guide (shown in the page)
+songs/                 example songs, shown in the page's menu (number prefix = order)
+perl/                  the original Perl implementation, kept as the reference
 ```
 
 ## Parity tests
@@ -148,7 +157,7 @@ The JavaScript is held to the reference tools exactly:
 - notation to CSV must be identical to `perl/notate.pl`
 - CSV to MIDI must be byte-identical to fourmilab's `csvmidi`
 
-The expected outputs live in `test/expected/`. After changing the notation,
+The expected outputs live in `core/test/expected/`. After changing the notation,
 update `perl/notate.pl` to match and run `npm run fixtures` (needs `perl` and
 `csvmidi`; on Debian/Ubuntu: `apt install midicsv`) to regenerate them.
 
@@ -156,8 +165,11 @@ update `perl/notate.pl` to match and run `npm run fixtures` (needs `perl` and
 
 - [midicsv / csvmidi](https://www.fourmilab.ch/webtools/midicsv/) by John Walker, public domain:
   the CSV format and the reference encoder
-- [html-midi-player](https://github.com/cifkao/html-midi-player) by Ondřej Cífka (BSD-2-Clause)
-  and [Magenta.js](https://github.com/magenta/magenta-js): playback and piano roll
+- [Tone.js](https://tonejs.github.io/) (MIT): audio scheduling and synths
+- [Vue](https://vuejs.org/) and [Vite](https://vite.dev/) (MIT), with
+  [vite-plugin-singlefile](https://github.com/richardtallent/vite-plugin-singlefile) (MIT)
+- [html-midi-player](https://github.com/cifkao/html-midi-player) by Ondřej Cífka: the player in
+  the first versions
 - [LilyPond](https://lilypond.org/): inspiration for the note syntax
 
 ## License

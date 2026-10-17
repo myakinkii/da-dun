@@ -1,0 +1,13 @@
+{
+  "name": "@da-dun/core",
+  "version": "0.2.0",
+  "description": "da-dun core: text notation -> midicsv CSV -> MIDI, song timing, and the hum box logic. No dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": "./src/index.js" },
+  "bin": { "da-dun": "src/cli.js" },
+  "scripts": {
+    "test": "node --test",
+    "fixtures": "sh test/make-fixtures.sh"
+  }
+}

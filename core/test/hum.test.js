@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hum, humPrompt, parseHumReply, checkNotation } from "../src/hum.js";
 
-const guide = readFileSync(new URL("../docs/notation.txt", import.meta.url), "utf8");
+const guide = readFileSync(new URL("../../docs/notation.txt", import.meta.url), "utf8");
 const sketch = "title Test\ntempo 96\n\npiano: a'4 R | e R |\n";
 
 test("prompt carries rules, guide, sketch and request", () => {
