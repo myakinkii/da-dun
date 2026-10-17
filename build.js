@@ -11,7 +11,7 @@ const read = p => readFileSync(new URL(p, root), "utf8");
 const safe = s => s.replace(/<\/(script)/gi, "<\\/$1");
 
 function build() {
-  const modules = ["src/gm.js", "src/notate.js", "src/csvmidi.js", "src/zip.js"]
+  const modules = ["src/gm.js", "src/notate.js", "src/csvmidi.js", "src/zip.js", "src/hum.js"]
     .map(f => `// ---- ${f} ----\n` + read(f).replace(/^import .*$/gm, "").replace(/^export /gm, ""))
     .join("\n");
   const songs = readdirSync(new URL("songs/", root)).filter(f => f.endsWith(".txt")).sort()

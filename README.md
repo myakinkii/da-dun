@@ -68,6 +68,45 @@ and Claude share one working copy:
 
 Opened from a file, the page simply uses your browser's local storage.
 
+## The hum box
+
+Inside the artifact, the page shows a "Hum it to Claude" box: describe what
+you hear ("ta-ta-ta-TAAM, rising and heroic, as two new bars after bar 4"),
+and Claude writes it into the sketch. You can play the proposal, use it (with
+Undo), or discard it. It uses the artifact `sample` capability, so it runs on
+the viewer's own Claude account and asks for permission the first time.
+
+All the logic is in `src/hum.js` and doesn't depend on the page or on a
+particular model: give it an `ask(prompt)` function that returns the model's
+reply parsed as JSON. It builds the prompt (rules for reading da-duns, the
+notation guide, the current sketch and the request), checks the answer with
+`notate()`, and sends any problems back for one repair round. For example,
+with the Anthropic API:
+
+```js
+import { readFileSync } from "node:fs";
+import { hum } from "./src/hum.js";
+
+const ask = async prompt => {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+               "content-type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 4000,
+                           messages: [{ role: "user", content: prompt }] }),
+  });
+  const text = (await res.json()).content.map(c => c.text || "").join("");
+  return JSON.parse(text.replace(/^```(json)?|```$/gm, ""));
+};
+
+const { notation, explanation, problems } = await hum({
+  notation: readFileSync("songs/01-our-piece.txt", "utf8"),
+  request: "ta-ta-ta-TAAM, rising, two more bars",
+  guide: readFileSync("docs/notation.txt", "utf8"),
+  ask,
+});
+```
+
 ## The notation
 
 See [docs/notation.txt](docs/notation.txt) (also shown in the page's
@@ -92,6 +131,7 @@ src/gm.js          General MIDI instrument and drum names, short aliases
 src/notate.js      notation -> CSV
 src/csvmidi.js     CSV -> MIDI bytes (subset of fourmilab csvmidi)
 src/zip.js         tiny ZIP writer (for hosts that won't download .mid)
+src/hum.js         the hum box: prompt, answer checking, repair round (works with any LLM)
 src/cli.js         command line
 web/index.html     editor page template; build.js inlines src/ and web/app.js
 web/app.js         editor logic: storage, sync, playback, saving

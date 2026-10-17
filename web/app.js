@@ -25,8 +25,12 @@ const local = {
   set(k, v) { try { localStorage.setItem("sketchbook:" + k, JSON.stringify(v)); } catch (e) {} },
   del(k) { try { localStorage.removeItem("sketchbook:" + k); } catch (e) {} },
 };
-const validDoc = d => d && typeof d === "object" && typeof d.text === "string" && d.text.length < 200000 &&
-  (d.type === "sketch" || (d.type === "draft" && EXAMPLES.some(e => e.id === d.example)));
+const validItem = i => i && typeof i === "object" && typeof i.id === "string" && typeof i.request === "string" &&
+  typeof i.notation === "string" && (i.explanation === undefined || typeof i.explanation === "string");
+const validDoc = d => d && typeof d === "object" && (
+  (typeof d.text === "string" && d.text.length < 200000 &&
+   (d.type === "sketch" || (d.type === "draft" && EXAMPLES.some(e => e.id === d.example)))) ||
+  (d.type === "hum" && typeof d.sketch === "string" && Array.isArray(d.items) && d.items.length <= 50 && d.items.every(validItem)));
 
 function loadLocalDocs() {
   let d = local.get("docs");
@@ -117,14 +121,15 @@ function onRemote(snap, isFirst) {
         setEditor(incoming);
         showBanner(`${who} updated this sketch.`);
       } else {
-        showBanner(`${who} changed this sketch while you were editing.`, {
-          load: () => setEditor(incoming),
-          keep: () => saveNow(),
-        });
+        showBanner(`${who} changed this sketch while you were editing.`, [
+          { label: "Load it", fn: () => setEditor(incoming) },
+          { label: "Keep mine", fn: () => saveNow() },
+        ]);
       }
     }
   }
   fillMenu(current ? current.key : undefined);
+  if (current) renderHumHistory();
 }
 
 // ---- entries in the menu ----
@@ -161,6 +166,10 @@ function open(key) {
   $("delete").hidden = !current.sketch;
   setEditor(current.text);
   fillMenu(current.key);
+  closeProposal(false);
+  renderHumHistory();
+  const last = humItems().slice(-1)[0];
+  if (last && last.status === "open") showProposal(last);
 }
 function setEditor(text) {
   editor.value = text;
@@ -188,7 +197,7 @@ function lineButton(w) {
   if (w.line) b.onclick = () => gotoLine(w.line);
   li.appendChild(b); return li;
 }
-function compile() {
+function compile(autoload = true) {
   const st = $("status"); st.innerHTML = "";
   try {
     const r = notate(editor.value);
@@ -208,6 +217,7 @@ function compile() {
       st.appendChild(e);
     }
     showText();
+    if (!autoload) return;
     if (player.playing) pending = true; else load();
   } catch (e) {
     latest = null;
@@ -220,13 +230,25 @@ function load() {
   pending = false;
   if (latest && latest.ns) { player.noteSequence = latest.ns; viz.noteSequence = latest.ns; }
 }
-function playFromStart() {
-  compile();
-  if (!latest || !latest.ns) return;
+// The player prepares a new sequence asynchronously and ignores start()
+// until it's ready, so start on its "load" event (with a fallback timer).
+function playSequence(ns) {
   try { if (window.Tone) Tone.start(); } catch (e) {}
   if (player.playing) player.stop();
-  load();
-  setTimeout(() => player.start(), 0);
+  pending = false;
+  let done = false, timer = 0;
+  const go = () => {
+    if (done) return;
+    done = true; clearTimeout(timer); player.removeEventListener("load", go);
+    try { player.start(); } catch (e) {}
+  };
+  player.addEventListener("load", go);
+  timer = setTimeout(go, 1500);
+  player.noteSequence = ns; viz.noteSequence = ns;
+}
+function playFromStart() {
+  compile(false);
+  if (latest && latest.ns) playSequence(latest.ns);
 }
 player.addEventListener("stop", () => { if (pending) load(); });
 
@@ -240,20 +262,145 @@ function gotoLine(n) {
 }
 function showText() { $("text").textContent = view === "guide" ? GUIDE : (latest ? latest.csv : ""); }
 
-// ---- banner ----
-let bannerActions = {};
-function showBanner(text, actions = {}) {
-  bannerActions = actions;
+// ---- banner: a notice with buttons; each button closes it ----
+function showBanner(text, actions = [{ label: "OK" }]) {
   $("banner-text").textContent = text;
-  $("banner-load").hidden = !actions.load;
-  $("banner-keep").hidden = !actions.keep;
-  $("banner-close").hidden = !!(actions.load || actions.keep);
+  const box = $("banner-actions"); box.innerHTML = "";
+  for (const a of actions) {
+    const b = document.createElement("button");
+    b.textContent = a.label;
+    b.onclick = () => { hideBanner(); if (a.fn) a.fn(); };
+    box.appendChild(b);
+  }
   $("banner").hidden = false;
 }
-const hideBanner = () => { $("banner").hidden = true; bannerActions = {}; };
-$("banner-load").onclick = () => { const f = bannerActions.load; hideBanner(); if (f) f(); };
-$("banner-keep").onclick = () => { const f = bannerActions.keep; hideBanner(); if (f) f(); };
-$("banner-close").onclick = hideBanner;
+const hideBanner = () => { $("banner").hidden = true; };
+
+// ---- hum box: describe music in words, Claude writes the notation ----
+const sampleP = cap("sample");
+let humCtl = null, proposal = null;
+sampleP.then(s => { if (s) $("hum").hidden = false; });
+const HUM_ERRORS = {
+  cancelled: "Stopped.",
+  not_granted: "The hum box needs your permission to ask Claude. Reload the page to be asked again.",
+  rate_limited: "Claude is busy, or you’ve reached a usage limit. Try again in a little while.",
+  refused: "Claude declined that request. Try describing it differently.",
+  invalid_json: "Claude’s answer couldn’t be read. Try again.",
+  empty_completion: "Claude’s answer came back empty. Try again.",
+  prompt_too_large: "This sketch is too long to send in one go.",
+  session_expired: "Your session expired. Reload the page and try again.",
+};
+const humError = e => HUM_ERRORS[e && e.code] ||
+  (e && e.code ? `Asking Claude isn’t working right now (${e.code}).` : (e && e.message) || "Something went wrong.");
+function setHumBusy(busy) {
+  $("hum-go").disabled = busy;
+  $("hum-stop").hidden = !busy;
+}
+const humItems = (sketch = current.docId) => (docs.get("hum-" + sketch) || { items: [] }).items;
+function saveHumItems(items, sketch = current.docId) {
+  const id = "hum-" + sketch;
+  if (items.length) docs.set(id, { type: "hum", sketch, items: items.slice(-20), updated: new Date().toISOString() });
+  else docs.delete(id);
+  persistLocal(); pushRemote(id); renderHumHistory();
+}
+function setHumStatus(itemId, status) {
+  saveHumItems(humItems().map(i => (i.id === itemId ? { ...i, status } : i)));
+}
+const STATUS_LABEL = { open: "new", used: "used", dropped: "dropped", answer: "answer" };
+function renderHumHistory() {
+  const items = current ? humItems() : [];
+  const box = $("hum-history");
+  box.hidden = !items.length;
+  $("hum-history-count").textContent = items.length;
+  const ol = $("hum-history-list"); ol.innerHTML = "";
+  for (const it of items.slice().reverse()) {
+    const li = document.createElement("li"), b = document.createElement("button"), s = document.createElement("span");
+    b.textContent = it.request.length > 90 ? it.request.slice(0, 88) + "…" : it.request;
+    b.onclick = () => showProposal(it);
+    s.textContent = STATUS_LABEL[it.status] || "";
+    li.append(b, " ", s); ol.appendChild(li);
+  }
+}
+function showProposal(item) {
+  proposal = item;
+  const answerOnly = item.notation.trim() === editor.value.trim();
+  $("hum-explain").textContent = item.explanation || "Here’s a version.";
+  $("hum-preview").textContent = item.notation;
+  $("hum-preview").hidden = answerOnly;
+  $("hum-apply").hidden = answerOnly;
+  $("hum-play").hidden = answerOnly;
+  $("hum-discard").textContent = answerOnly ? "Close" : "Discard";
+  const n = (item.problems || []).length;
+  $("hum-note").textContent = n
+    ? `Heads-up: the converter still found ${n} problem${n === 1 ? "" : "s"}; you’ll see ${n === 1 ? "it" : "them"} under the editor if you use this.`
+    : item.repaired ? "Claude fixed a mistake in its first try." : "";
+  $("hum-result").hidden = false;
+}
+async function humGo() {
+  const request = $("hum-input").value.trim();
+  if (!request) { $("hum-input").focus(); return; }
+  const sample = await sampleP;
+  if (!sample || humCtl) return;
+  const ctl = humCtl = new AbortController();
+  setHumBusy(true);
+  $("hum-result").hidden = true;
+  $("hum-note").textContent = "Thinking…";
+  const base = editor.value, sketch = current.docId;
+  try {
+    const r = await hum({
+      notation: base, request, guide: GUIDE, repairs: 1,
+      ask: p => sample.json(p, { signal: ctl.signal, cache: false }),
+    });
+    const item = { id: Date.now().toString(36), request, explanation: r.explanation, notation: r.notation,
+                   problems: r.problems, repaired: r.attempts > 1, at: new Date().toISOString(),
+                   status: r.notation.trim() === base.trim() ? "answer" : "open" };
+    saveHumItems([...humItems(sketch), item], sketch);   // kept even if you switched sketches meanwhile
+    if (current && current.docId === sketch) showProposal(item);
+  } catch (e) {
+    $("hum-note").textContent = humError(e);
+  } finally {
+    humCtl = null;
+    setHumBusy(false);
+  }
+}
+function closeProposal(restorePlayer = true) {
+  proposal = null;
+  $("hum-result").hidden = true;
+  $("hum-note").textContent = "";
+  if (!restorePlayer) return;
+  if (player.playing) { pending = true; player.stop(); } else load();   // back to the editor's version
+}
+$("hum-go").onclick = humGo;
+$("hum-stop").onclick = () => { if (humCtl) humCtl.abort(); };
+$("hum-input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); humGo(); }
+});
+$("hum-play").onclick = () => {
+  if (!proposal || !window.core) return;
+  try {
+    playSequence(core.midiToSequenceProto(csvToMidi(notate(proposal.notation).csv).bytes));
+  } catch (e) { $("hum-note").textContent = e.message; }
+};
+$("hum-apply").onclick = () => {
+  if (!proposal) return;
+  const before = editor.value, text = proposal.notation;
+  setHumStatus(proposal.id, "used");
+  closeProposal();
+  setEditor(text); saveNow();
+  fillMenu(current.key);
+  showBanner("Using Claude’s version now.", [
+    { label: "Undo", fn: () => { setEditor(before); saveNow(); fillMenu(current.key); } },
+    { label: "OK" },
+  ]);
+};
+$("hum-discard").onclick = () => {
+  if (proposal && proposal.status === "open") setHumStatus(proposal.id, "dropped");
+  closeProposal();
+};
+$("hum-clear").onclick = () => {
+  if (!confirm("Forget all of Claude’s earlier answers for this sketch?")) return;
+  closeProposal(); saveHumItems([]);
+};
 
 // ---- saving files ----
 async function saveFile(kind) {
@@ -305,7 +452,7 @@ $("revert").onclick = () => {
 $("delete").onclick = () => {
   if (!current.sketch || !confirm(`Delete “${titleOf(editor.value)}”?`)) return;
   clearTimeout(saveTimer); saveTimer = 0;
-  const id = current.docId; docs.delete(id); persistLocal(); pushRemote(id);
+  const id = current.docId; docs.delete(id); docs.delete("hum-" + id); persistLocal(); pushRemote(id); pushRemote("hum-" + id);
   current = null; open(entries()[0].key);
 };
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {

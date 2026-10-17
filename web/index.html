@@ -52,6 +52,23 @@ pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8p
 .banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 0.9rem; }
 .banner[hidden] { display: none; }
 .banner span { flex: 1; min-width: 12em; }
+.hum { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.hum[hidden] { display: none; }
+.hum label { display: block; font-weight: 600; margin-bottom: 6px; }
+.hum-row { display: flex; gap: 8px; align-items: flex-start; }
+.hum-row textarea { flex: 1; min-height: 0; white-space: pre-wrap; font: inherit; padding: 8px 10px; resize: vertical; }
+.hum-buttons { display: flex; flex-direction: column; gap: 6px; }
+.hum-note { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
+#hum-explain { margin: 8px 0; }
+#hum-preview { max-height: 220px; }
+#hum-history { margin-top: 8px; font-size: 0.9rem; }
+#hum-history summary { cursor: pointer; color: var(--muted); }
+#hum-history ol { margin: 6px 0 8px; padding-left: 1.4em; }
+#hum-history li { margin: 2px 0; }
+#hum-history li button { border: 0; background: none; padding: 0; color: var(--accent); text-align: left; cursor: pointer; }
+#hum-history li button:hover { text-decoration: underline; }
+#hum-history li span { color: var(--muted); font-size: 0.8rem; }
+@media (max-width: 560px) { .hum-row { flex-direction: column; align-items: stretch; } .hum-buttons { flex-direction: row; } }
 .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
 kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 </style>
@@ -66,8 +83,26 @@ kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4p
     <span class="spacer"></span>
     <button class="primary" id="play">Play from start</button>
   </div>
+  <section class="hum" id="hum" hidden aria-labelledby="hum-label">
+    <label id="hum-label" for="hum-input">Hum it to Claude</label>
+    <div class="hum-row">
+      <textarea id="hum-input" rows="2" placeholder="ta-ta-ta-TAAM, rising and heroic. Add it as two new bars after bar 4."></textarea>
+      <div class="hum-buttons"><button class="primary" id="hum-go">Write it</button><button id="hum-stop" hidden>Stop</button></div>
+    </div>
+    <p class="hum-note" id="hum-note" aria-live="polite"></p>
+    <div id="hum-result" hidden>
+      <p id="hum-explain"></p>
+      <pre id="hum-preview"></pre>
+      <div class="bar" style="margin:8px 0 0"><button class="primary" id="hum-apply">Use this</button><button id="hum-play">Play it</button><button id="hum-discard">Discard</button></div>
+    </div>
+    <details id="hum-history" hidden>
+      <summary>Earlier answers (<span id="hum-history-count">0</span>)</summary>
+      <ol id="hum-history-list"></ol>
+      <button id="hum-clear">Forget these</button>
+    </details>
+  </section>
   <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Notation"></textarea>
-  <div class="banner" id="banner" hidden role="status"><span id="banner-text"></span><button id="banner-load" hidden>Load it</button><button id="banner-keep" hidden>Keep mine</button><button id="banner-close">OK</button></div>
+  <div class="banner" id="banner" hidden role="status"><span id="banner-text"></span><span id="banner-actions"></span></div>
   <p class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays from the start. <span id="sync">Edits are saved in this browser as you type.</span></p>
   <div class="status" id="status" aria-live="polite"></div>
 
