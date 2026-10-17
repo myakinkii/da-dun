@@ -1,0 +1,4 @@
+dist/
+node_modules/
+*.mid
+!test/expected/*.mid

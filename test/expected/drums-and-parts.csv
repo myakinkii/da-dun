@@ -1,0 +1,76 @@
+0, 0, Header, 1, 6, 480
+1, 0, Start_track
+1, 0, Title_t, "Parts and drums"
+1, 0, Time_signature, 6, 3, 24, 8
+1, 0, Tempo, 500000
+1, 2880, End_track
+2, 0, Start_track
+2, 0, Title_t, "organ"
+2, 0, Program_c, 0, 16
+2, 0, Note_on_c, 0, 72, 82
+2, 690, Note_off_c, 0, 72, 0
+2, 720, Note_on_c, 0, 76, 82
+2, 1410, Note_off_c, 0, 76, 0
+2, 1440, Note_on_c, 0, 79, 82
+2, 2850, Note_off_c, 0, 79, 0
+2, 2850, End_track
+3, 0, Start_track
+3, 0, Title_t, "synth bass"
+3, 0, Program_c, 1, 38
+3, 0, Note_on_c, 1, 24, 82
+3, 690, Note_off_c, 1, 24, 0
+3, 720, Note_on_c, 1, 19, 82
+3, 1410, Note_off_c, 1, 19, 0
+3, 1410, End_track
+4, 0, Start_track
+4, 0, Title_t, "choir"
+4, 0, Program_c, 2, 52
+4, 0, Note_on_c, 2, 60, 82
+4, 0, Note_on_c, 2, 64, 82
+4, 0, Note_on_c, 2, 67, 82
+4, 1410, Note_off_c, 2, 60, 0
+4, 1410, Note_off_c, 2, 64, 0
+4, 1410, Note_off_c, 2, 67, 0
+4, 1440, Note_on_c, 2, 62, 82
+4, 1440, Note_on_c, 2, 65, 82
+4, 1440, Note_on_c, 2, 69, 82
+4, 2130, Note_off_c, 2, 62, 0
+4, 2130, Note_off_c, 2, 65, 0
+4, 2130, Note_off_c, 2, 69, 0
+4, 2130, End_track
+5, 0, Start_track
+5, 0, Title_t, "cello"
+5, 0, Program_c, 3, 42
+5, 0, Note_on_c, 3, 60, 82
+5, 450, Note_off_c, 3, 60, 0
+5, 480, Note_on_c, 3, 62, 82
+5, 930, Note_off_c, 3, 62, 0
+5, 960, Note_on_c, 3, 64, 82
+5, 1410, Note_off_c, 3, 64, 0
+5, 1410, End_track
+6, 0, Start_track
+6, 0, Title_t, "Drums"
+6, 0, Note_on_c, 9, 46, 90
+6, 0, Note_on_c, 9, 51, 90
+6, 60, Note_off_c, 9, 46, 0
+6, 60, Note_off_c, 9, 51, 0
+6, 240, Note_on_c, 9, 51, 90
+6, 300, Note_off_c, 9, 51, 0
+6, 360, Note_on_c, 9, 46, 120
+6, 420, Note_off_c, 9, 46, 0
+6, 480, Note_on_c, 9, 51, 90
+6, 480, Note_on_c, 9, 54, 120
+6, 540, Note_off_c, 9, 51, 0
+6, 540, Note_off_c, 9, 54, 0
+6, 720, Note_on_c, 9, 46, 90
+6, 720, Note_on_c, 9, 51, 90
+6, 780, Note_off_c, 9, 46, 0
+6, 780, Note_off_c, 9, 51, 0
+6, 960, Note_on_c, 9, 51, 90
+6, 1020, Note_off_c, 9, 51, 0
+6, 1080, Note_on_c, 9, 46, 90
+6, 1140, Note_off_c, 9, 46, 0
+6, 1200, Note_on_c, 9, 51, 90
+6, 1260, Note_off_c, 9, 51, 0
+6, 1260, End_track
+0, 0, End_of_file

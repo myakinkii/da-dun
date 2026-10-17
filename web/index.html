@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MIDI Sketchbook</title>
+<!-- Built from web/index.html by build.js; edit the sources, not dist/. -->
+<style>
+:root {
+  --bg: #F3F5F8; --ink: #17202E; --muted: #5B6676; --panel: #FFFFFF; --line: #D5DCE4;
+  --sel: #E4E9EF; --accent: #2F5BD3; --accent-ink: #FFFFFF; --ok: #2E7D4F; --warn: #A15C00; --err: #C0362C;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  color-scheme: light; box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121821; --ink: #E4E9F0; --muted: #93A0B2; --panel: #1A222E; --line: #2B3645;
+  --sel: #263142; --accent: #7EA2FF; --accent-ink: #0E1420; --ok: #6CCB93; --warn: #F0B45A; --err: #FF7B6E;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121821; --ink: #E4E9F0; --muted: #93A0B2; --panel: #1A222E; --line: #2B3645;
+  --sel: #263142; --accent: #7EA2FF; --accent-ink: #0E1420; --ok: #6CCB93; --warn: #F0B45A; --err: #FF7B6E;
+  color-scheme: dark; }
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+main { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.bar .spacer { flex: 1; }
+select, button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+select { max-width: 100%; }
+button:hover, select:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea {
+  display: block; width: 100%; min-height: 220px; resize: vertical; padding: 12px 14px;
+  font: 0.92rem/1.6 var(--mono); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; tab-size: 2; white-space: pre; overflow: auto;
+}
+.status { min-height: 1.6em; margin: 8px 0 16px; font-size: 0.9rem; }
+.status .ok { color: var(--ok); }
+.status .err { color: var(--err); font-weight: 600; }
+.status ul { margin: 4px 0 0; padding: 0; list-style: none; }
+.status li button { border: 0; background: none; padding: 1px 0; color: var(--warn); text-align: left; cursor: pointer; font: inherit; }
+.status li button:hover { text-decoration: underline; }
+midi-player { display: block; width: 100%; margin-bottom: 10px; }
+.viz { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; min-height: 60px; }
+.tabs { display: flex; gap: 4px; margin: 22px 0 8px; }
+.tabs button { border: 0; background: transparent; color: var(--muted); font-weight: 500; }
+.tabs button[aria-selected="true"] { background: var(--sel); color: var(--ink); }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 420px; font: 0.82rem/1.55 var(--mono); margin: 0; }
+.hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
+kbd { font: 0.8rem var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <select id="song" aria-label="Song"></select>
+    <button id="new">New sketch</button>
+    <button id="revert" title="Undo all your edits to this example">Revert</button>
+    <button id="delete" hidden>Delete</button>
+    <span class="spacer"></span>
+    <button class="primary" id="play">Play from start</button>
+  </div>
+  <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Notation"></textarea>
+  <p class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays from the start. Edits are saved in this browser as you type.</p>
+  <div class="status" id="status" aria-live="polite"></div>
+
+  <midi-player id="player" visualizer="#viz"></midi-player>
+  <div class="viz"><midi-visualizer type="piano-roll" id="viz"></midi-visualizer></div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" data-show="csv" aria-selected="true">CSV</button>
+    <button role="tab" data-show="guide" aria-selected="false">Notation guide</button>
+  </div>
+  <pre id="text"></pre>
+  <div class="bar" style="margin-top:10px">
+    <span class="hint" style="margin:0">Save as:</span>
+    <button data-save="mid">MIDI</button>
+    <button data-save="csv">CSV</button>
+    <button data-save="txt">Notation</button>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.7.58"></script>
+<script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/core.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html-midi-player@1.4.0"></script>
+<script>
+(() => {
+"use strict";
+/*MODULES*/
+
+// ---- app ----
+const EXAMPLES = /*SONGS*/;
+const GUIDE = /*GUIDE*/;
+const NEW_SKETCH = "title New sketch\ntempo 100\ntime 4/4\n\npiano: c4 d e f | g1 |\n";
+const $ = id => document.getElementById(id);
+const editor = $("editor"), player = $("player"), viz = $("viz"), sel = $("song");
+
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem("sketchbook:" + k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem("sketchbook:" + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem("sketchbook:" + k); } catch (e) {} },
+};
+let sketches = store.get("sketches") || [];          // [{id, text}]
+const titleOf = text => (text.match(/^\s*title\s+(.+)$/im) || [, "Untitled"])[1].trim();
+
+function entries() {
+  return [
+    ...EXAMPLES.map(e => ({ key: "ex:" + e.id, original: e.text, text: store.get("draft:" + e.id) ?? e.text, example: e.id })),
+    ...sketches.map(s => ({ key: "sk:" + s.id, text: s.text, sketch: s.id })),
+  ];
+}
+let current = null, latest = null, pending = false, view = "csv";
+
+function fillMenu(selectKey) {
+  sel.innerHTML = "";
+  const groups = [["Examples", e => e.example], ["My sketches", e => e.sketch]];
+  const all = entries();
+  for (const [label, test] of groups) {
+    const items = all.filter(test);
+    if (!items.length) continue;
+    const og = document.createElement("optgroup"); og.label = label;
+    for (const e of items) og.appendChild(new Option(titleOf(e.text), e.key));
+    sel.appendChild(og);
+  }
+  sel.value = selectKey;
+}
+function open(key) {
+  current = entries().find(e => e.key === key) || entries()[0];
+  store.set("last", current.key);
+  editor.value = current.text;
+  $("revert").hidden = !current.example;
+  $("delete").hidden = !current.sketch;
+  fillMenu(current.key);
+  compile();
+}
+function save() {
+  const text = editor.value;
+  if (current.example) {
+    if (text === current.original) store.del("draft:" + current.example); else store.set("draft:" + current.example, text);
+  } else {
+    const s = sketches.find(x => x.id === current.sketch); if (s) s.text = text; store.set("sketches", sketches);
+  }
+  current.text = text;
+  const opt = sel.querySelector(`option[value="${current.key}"]`);
+  if (opt) opt.textContent = titleOf(text);
+}
+
+// ---- compile: notation -> CSV -> MIDI -> player ----
+function lineButton(w) {
+  const li = document.createElement("li"), b = document.createElement("button");
+  b.textContent = (w.line ? `Line ${w.line}: ` : "") + w.message;
+  if (w.line) b.onclick = () => gotoLine(w.line);
+  li.appendChild(b); return li;
+}
+function compile() {
+  const st = $("status"); st.innerHTML = "";
+  try {
+    const r = notate(editor.value);
+    const m = csvToMidi(r.csv);
+    latest = { csv: r.csv, bytes: m.bytes, title: r.title, ns: null };
+    if (window.core) latest.ns = core.midiToSequenceProto(m.bytes);
+    const ws = [...r.warnings, ...m.warnings];
+    const bars = Math.ceil(r.ticks / r.barTicks);
+    const ok = document.createElement("span"); ok.className = "ok";
+    ok.textContent = `${bars} bar${bars === 1 ? "" : "s"}, ${r.notes} note${r.notes === 1 ? "" : "s"}` +
+      (ws.length ? `, ${ws.length} warning${ws.length === 1 ? "" : "s"}:` : ". All good.");
+    st.appendChild(ok);
+    if (ws.length) { const ul = document.createElement("ul"); ws.forEach(w => ul.appendChild(lineButton(w))); st.appendChild(ul); }
+    if (!window.core) st.insertAdjacentHTML("beforeend", "<div class=\"err\">The player scripts didn’t load, so playback is off. Check your internet connection and reload.</div>");
+    showText();
+    if (player.playing) pending = true; else load();
+  } catch (e) {
+    const err = document.createElement("div"); err.className = "err";
+    err.textContent = e.message; st.appendChild(err);
+    if (e.line) { const ul = document.createElement("ul"); ul.appendChild(lineButton({ line: e.line, message: "go to the problem" })); st.appendChild(ul); }
+  }
+}
+function load() {
+  pending = false;
+  if (latest && latest.ns) { player.noteSequence = latest.ns; viz.noteSequence = latest.ns; }
+}
+function playFromStart() {
+  compile();
+  if (!latest || !latest.ns) return;
+  try { if (window.Tone) Tone.start(); } catch (e) {}
+  if (player.playing) player.stop();
+  load();
+  setTimeout(() => player.start(), 0);
+}
+player.addEventListener("stop", () => { if (pending) load(); });
+
+function gotoLine(n) {
+  const lines = editor.value.split("\n");
+  const start = lines.slice(0, n - 1).reduce((a, l) => a + l.length + 1, 0);
+  editor.focus();
+  editor.setSelectionRange(start, start + (lines[n - 1] || "").length);
+  const lh = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+  editor.scrollTop = Math.max(0, (n - 3) * lh);
+}
+function showText() { $("text").textContent = view === "guide" ? GUIDE : (latest ? latest.csv : ""); }
+
+// ---- events ----
+let timer = 0;
+editor.addEventListener("input", () => { save(); clearTimeout(timer); timer = setTimeout(compile, 300); });
+editor.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); playFromStart(); }
+  else if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); editor.setRangeText("  ", editor.selectionStart, editor.selectionEnd, "end"); editor.dispatchEvent(new Event("input")); }
+});
+document.addEventListener("pointerdown", () => { try { if (window.Tone) Tone.start(); } catch (e) {} }, { capture: true });
+$("play").onclick = playFromStart;
+sel.onchange = () => { if (player.playing) player.stop(); open(sel.value); };
+$("new").onclick = () => {
+  const id = Date.now().toString(36);
+  sketches.push({ id, text: NEW_SKETCH }); store.set("sketches", sketches); open("sk:" + id);
+  editor.focus();
+};
+$("revert").onclick = () => {
+  if (!current.example || editor.value === current.original) return;
+  if (!confirm("Throw away your edits to this example?")) return;
+  store.del("draft:" + current.example); open(current.key);
+};
+$("delete").onclick = () => {
+  if (!current.sketch || !confirm(`Delete “${titleOf(editor.value)}”?`)) return;
+  sketches = sketches.filter(s => s.id !== current.sketch); store.set("sketches", sketches); open(entries()[0].key);
+};
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  view = b.dataset.show;
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  showText();
+});
+document.querySelectorAll("[data-save]").forEach(b => b.onclick = () => {
+  if (!latest && b.dataset.save !== "txt") return;
+  const kind = b.dataset.save;
+  const name = (titleOf(editor.value).replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "sketch").toLowerCase();
+  const blob = kind === "mid" ? new Blob([latest.bytes], { type: "audio/midi" })
+             : new Blob([kind === "csv" ? latest.csv : editor.value], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `${name}.${kind}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+open(store.get("last") || "ex:" + EXAMPLES[0].id);
+})();
+</script>
+</body>
+</html>

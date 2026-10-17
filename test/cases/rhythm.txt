@@ -1,0 +1,7 @@
+title Rhythm features
+tempo 132.5
+time 3/4
+# durations, dots, triplets, ties, R, accents
+flute: c4. d8 e4 | f16 g a b c4 d8t e f | g2~ g8 r8 | >a4 R | b,2.~ | b4 R |
+flute: o5 c32 d e f g a b c c4 r4 |
+strings (low): o3 c2.~ | c4 r >c | e8 f# bb c#' R |

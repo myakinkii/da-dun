@@ -1,0 +1,23 @@
+{
+  "name": "da-dun",
+  "version": "0.1.0",
+  "description": "LLM assisted music creation tool: tiny text notation -> midicsv CSV -> MIDI, with a browser editor.",
+  "type": "module",
+  "bin": {
+    "da-dun": "src/cli.js"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "test": "node --test",
+    "fixtures": "sh test/make-fixtures.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/myakinkii/da-dun.git"
+  }
+}
