@@ -49,7 +49,7 @@ browser's local storage.
 ### Command line
 
 ```sh
-node core/src/cli.js songs/01-our-piece.txt          # writes songs/01-our-piece.mid
+node core/src/cli.js examples/01-our-piece.txt       # writes examples/01-our-piece.mid
 node core/src/cli.js song.txt -o out.mid
 node core/src/cli.js song.txt --csv                  # print the CSV instead
 node core/src/cli.js some.csv -o some.mid            # CSV straight to MIDI, like csvmidi
@@ -106,7 +106,7 @@ const ask = async prompt => {
 };
 
 const { notation, explanation, problems } = await hum({
-  notation: readFileSync("songs/01-our-piece.txt", "utf8"),
+  notation: readFileSync("examples/01-our-piece.txt", "utf8"),
   request: "ta-ta-ta-TAAM, rising, two more bars",
   guide: readFileSync("docs/notation.txt", "utf8"),
   ask,
@@ -146,7 +146,8 @@ web/src/sketchbook.js  app state: storage and sync, compiling, hum box, saving
 web/src/player.js      our player: Tone.js synths and a synthesized drum kit
 web/src/components/    PianoRoll.vue (clickable), HumBox.vue
 docs/notation.txt      notation guide (shown in the page)
-songs/                 example songs, shown in the page's menu (number prefix = order)
+examples/              example songs, shown in the page's menu (number prefix = order)
+songs/                 your own songs (gitignored); local builds show them as "My songs"
 perl/                  the original Perl implementation, kept as the reference
 ```
 
@@ -157,7 +158,8 @@ The JavaScript is held to the reference tools exactly:
 - notation to CSV must be identical to `perl/notate.pl`
 - CSV to MIDI must be byte-identical to fourmilab's `csvmidi`
 
-The expected outputs live in `core/test/expected/`. After changing the notation,
+The inputs are in `core/test/cases/` (frozen copies, so editing your music never
+breaks a test) and the expected outputs in `core/test/expected/`. After changing the notation,
 update `perl/notate.pl` to match and run `npm run fixtures` (needs `perl` and
 `csvmidi`; on Debian/Ubuntu: `apt install midicsv`) to regenerate them.
 

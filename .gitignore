@@ -1,4 +1,6 @@
 node_modules/
 dist/
+songs/*
+!songs/README.md
 *.mid
 !core/test/expected/*.mid

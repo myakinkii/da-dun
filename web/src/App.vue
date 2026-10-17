@@ -9,7 +9,7 @@ const { player, text, compiled, current, currentKey, menu, syncNote, banner, hum
 const editorEl = ref(null);
 const view = ref("csv");
 
-const groups = computed(() => ["Examples", "My sketches"]
+const groups = computed(() => ["Examples", "My songs", "My sketches"]
   .map(g => ({ label: g, items: menu.value.filter(m => m.group === g) })).filter(g => g.items.length));
 const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
 const status = computed(() => {

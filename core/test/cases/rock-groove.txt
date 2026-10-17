@@ -1,0 +1,9 @@
+title Rock groove
+tempo 110
+time 4/4
+
+# Two bars of drums with a bass line; each drum character is a 16th note
+kick:  |x.......x.x.....|x.......x.x...x.|
+snare: |....x.......x...|....x.......x.X.|
+hat:   |x.x.x.x.x.x.x.x.|x.x.x.x.x.x.x.x.|
+bass:  e8 e r e g a r e | e e r e d4 b8 b |

@@ -13,7 +13,7 @@ const root = new URL("../", import.meta.url);           // core/
 const read = p => readFileSync(new URL(p, root));
 const list = dir => readdirSync(new URL(dir, root)).filter(f => f.endsWith(".txt")).map(f => [dir, f.slice(0, -4)]);
 
-for (const [dir, name] of [...list("../songs/"), ...list("test/cases/")]) {
+for (const [dir, name] of list("test/cases/")) {
   test(`${name}: notation -> CSV matches notate.pl`, () => {
     const { csv } = notate(read(`${dir}${name}.txt`).toString("utf8"));
     assert.equal(csv, read(`test/expected/${name}.csv`).toString("utf8"));
@@ -52,7 +52,7 @@ test("sharps are notes, not comments", () => {
 test("zip: CRC-32 and a valid stored archive", async () => {
   const { crc32, makeZip } = await import("../src/zip.js");
   assert.equal(crc32(new TextEncoder().encode("123456789")), 0xCBF43926);
-  const mid = read("test/expected/01-our-piece.mid");
+  const mid = read("test/expected/our-piece.mid");
   const z = makeZip([{ name: "our-piece.mid", data: new Uint8Array(mid) }]);
   const dv = new DataView(z.buffer);
   assert.equal(dv.getUint32(0, true), 0x04034B50);              // local file header

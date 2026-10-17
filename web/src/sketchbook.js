@@ -15,9 +15,18 @@ import { capability } from "./claude.js";
 import { createPlayer } from "./player.js";
 
 export { GUIDE };
-export const EXAMPLES = Object.entries(import.meta.glob("../../songs/*.txt", { query: "?raw", import: "default", eager: true }))
+// Menu songs come from two folders: examples/ (in the repo) and songs/ (your
+// own, gitignored; picked up by local builds). A song in songs/ with the same
+// name as an example replaces it.
+const fromFolder = (files, group) => Object.entries(files)
   .sort(([a], [b]) => a.localeCompare(b))
-  .map(([path, text]) => ({ id: path.split("/").pop().replace(/\.txt$/, "").replace(/^\d+-/, ""), text }));
+  .map(([path, text]) => ({ id: path.split("/").pop().replace(/\.txt$/, "").replace(/^\d+-/, ""), text, group }));
+const mine = fromFolder(import.meta.glob("../../songs/*.txt", { query: "?raw", import: "default", eager: true }), "My songs");
+export const EXAMPLES = [
+  ...fromFolder(import.meta.glob("../../examples/*.txt", { query: "?raw", import: "default", eager: true }), "Examples")
+    .filter(e => !mine.some(m => m.id === e.id)),
+  ...mine,
+];
 const NEW_SKETCH = "title New sketch\ntempo 100\ntime 4/4\n\npiano: c4 d e f | g1 |\n";
 export const titleOf = text => (String(text).match(/^\s*title\s+(.+)$/im) || [, "Untitled"])[1].trim();
 const now = () => new Date().toISOString();
@@ -80,13 +89,13 @@ export function useSketchbook() {
     return [
       ...EXAMPLES.map(e => {
         const d = docs.value.get("draft-" + e.id);
-        return { key: "ex:" + e.id, docId: "draft-" + e.id, example: e.id, original: e.text, text: d ? d.text : e.text };
+        return { key: "ex:" + e.id, docId: "draft-" + e.id, example: e.id, group: e.group, original: e.text, text: d ? d.text : e.text };
       }),
       ...sketches.map(([id, d]) => ({ key: id, docId: id, sketch: true, text: d.text })),
     ];
   });
   const current = computed(() => entries.value.find(e => e.key === currentKey.value) || entries.value[0]);
-  const menu = computed(() => entries.value.map(e => ({ key: e.key, group: e.example ? "Examples" : "My sketches",
+  const menu = computed(() => entries.value.map(e => ({ key: e.key, group: e.example ? e.group : "My sketches",
                                                         title: titleOf(e.key === currentKey.value ? text.value : e.text) })));
 
   // ---- editor ----
