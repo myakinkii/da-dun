@@ -1,0 +1,15 @@
+{
+  "name": "@da-dun/server",
+  "version": "0.2.0",
+  "description": "da-dun HTTP API: notation -> CSV/MIDI, and the hum box backed by an LLM API. Serves the built editor too.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "da-dun-server": "src/index.js" },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@da-dun/core": "*"
+  }
+}

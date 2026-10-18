@@ -27,15 +27,21 @@ record types we support.
 
 ## Quick start
 
-Node 20.19+ (or 22.12+). The repository is an npm workspace with two packages:
-`core` (no dependencies) and `web` (Vue, Vite, Tone.js).
+Node 20.19+ (or 22.12+). The repository is an npm workspace with three packages:
+`core` (no dependencies), `web` (Vue, Vite, Tone.js) and `server` (no
+dependencies beyond core).
 
 ```sh
 npm install
 npm run dev          # editor at http://localhost:5173, with hot reload
 npm run build        # one self-contained file: dist/index.html
-npm test             # core parity tests + player tests
+npm test             # core, web and server tests
+npm start            # the server: the editor plus an HTTP API, on port 8787
 ```
+
+With an API key set (`ANTHROPIC_API_KEY=... npm start`), the editor served at
+http://127.0.0.1:8787 gets a working hum box too; see
+[server/README.md](server/README.md) for other models and the API.
 
 `dist/index.html` has everything inlined (no CDN), so it works opened straight
 from disk and is also what gets published as the claude.ai artifact.
@@ -56,6 +62,30 @@ node core/src/cli.js some.csv -o some.mid            # CSV straight to MIDI, lik
 ```
 
 `npm link -w core` makes it available as `da-dun`.
+
+### The original tools: Perl and csvmidi
+
+The project started as a Perl script feeding John Walker's command-line tools,
+and that path still works and produces the very same MIDI files. You'll need
+Perl (already on macOS and Linux; on Windows, [Strawberry Perl](https://strawberryperl.com/))
+and midicsv: on Debian/Ubuntu `sudo apt install midicsv` or `brew install midicsv` on Mac; elsewhere, download it
+from [fourmilab](https://www.fourmilab.ch/webtools/midicsv/) and build it with
+`make` (the zip includes ready-made Windows `.exe` files).
+
+```sh
+# notation -> CSV with the Perl reference, CSV -> MIDI with csvmidi
+perl perl/notate.pl examples/01-our-piece.txt | csvmidi > our-piece.mid
+
+# mix and match: our JavaScript for the notation, csvmidi for the encoding
+node core/src/cli.js examples/01-our-piece.txt --csv | csvmidi > our-piece.mid
+
+# the other direction, which only midicsv does: any MIDI file -> CSV
+midicsv some-song.mid > some-song.csv
+node core/src/cli.js some-song.csv -o copy.mid      # and back, with our encoder
+```
+
+`midicsv` is handy for looking inside MIDI files from other software, and
+`perl/notate.pl` is the reference the parity tests compare against.
 
 ## Inside a claude.ai artifact
 
@@ -81,10 +111,12 @@ you hear ("ta-ta-ta-TAAM, rising and heroic, as two new bars after bar 4"),
 and Claude writes it into the sketch. You can play the proposal, use it (with
 Undo), or discard it. It uses the artifact `sample` capability, so it runs on
 the viewer's own Claude account and asks for permission the first time.
+Outside claude.ai, the same box appears when the editor is served by the
+[da-dun server](server/README.md) with a model configured.
 
 All the logic is in `core/src/hum.js` and doesn't depend on the page or on a
 particular model: give it an `ask(prompt)` function that returns the model's
-reply parsed as JSON. It builds the prompt (rules for reading da-duns, the
+reply (as text, or already parsed). It builds the prompt (rules for reading da-duns, the
 notation guide, the current sketch and the request), checks the answer with
 `notate()`, and sends any problems back for one repair round. For example,
 with the Anthropic API:
@@ -101,8 +133,7 @@ const ask = async prompt => {
     body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 4000,
                            messages: [{ role: "user", content: prompt }] }),
   });
-  const text = (await res.json()).content.map(c => c.text || "").join("");
-  return JSON.parse(text.replace(/^```(json)?|```$/gm, ""));
+  return (await res.json()).content.map(c => c.text || "").join("");   // hum() parses the JSON
 };
 
 const { notation, explanation, problems } = await hum({
@@ -145,6 +176,8 @@ web/src/App.vue        the editor page
 web/src/sketchbook.js  app state: storage and sync, compiling, hum box, saving
 web/src/player.js      our player: Tone.js synths and a synthesized drum kit
 web/src/components/    PianoRoll.vue (clickable), HumBox.vue
+server/src/app.js      the HTTP API (notate, midi, hum) and the editor page
+server/src/llm.js      Anthropic and OpenAI-compatible backends for the hum box
 docs/notation.txt      notation guide (shown in the page)
 examples/              example songs, shown in the page's menu (number prefix = order)
 songs/                 your own songs (gitignored); local builds show them as "My songs"

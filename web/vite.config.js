@@ -7,4 +7,7 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 export default defineConfig({
   plugins: [vue(), viteSingleFile()],
   build: { outDir: "../dist", emptyOutDir: true, assetsInlineLimit: 100000000 },
+  // npm run dev / preview: send /api to the da-dun server (npm start, port 8787)
+  server: { proxy: { "/api": "http://127.0.0.1:8787" } },
+  preview: { proxy: { "/api": "http://127.0.0.1:8787" } },
 });

@@ -1,6 +1,6 @@
 // hum.js: turn "da-da-DUN"-style descriptions into notation with an LLM.
 // Model-agnostic: you pass an `ask(prompt)` function that sends a prompt to
-// some model and resolves with its reply parsed as JSON. The page uses the
+// some model and resolves with its reply, as text or already parsed as JSON. The page uses the
 // claude.ai artifact `sample` capability; a service could use any LLM API.
 // Every answer is checked with notate(); problems go back for a repair round.
 
@@ -42,8 +42,27 @@ export function humPrompt({ notation, request, guide, previous, problems }) {
   return s;
 }
 
-/** Validate a parsed reply. Throws when it doesn't have the right shape. */
+/**
+ * Read a model's reply as JSON, tolerantly (the same rules as claude.ai's
+ * sample.json): the whole reply; else the body of one Markdown code fence;
+ * else the text from the first { or [ to the last } or ]. Throws if none parse.
+ */
+export function parseJsonReply(text) {
+  const t = String(text).trim();
+  const tries = [t];
+  const fences = [...t.matchAll(/```[\w-]*\s*\n([\s\S]*?)\n?```/g)];
+  if (fences.length === 1) tries.push(fences[0][1]);
+  const a = t.search(/[{[]/), b = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+  if (a >= 0 && b > a) tries.push(t.slice(a, b + 1));
+  for (const c of tries) { try { return JSON.parse(c); } catch (e) {} }
+  const err = new Error("The answer wasn’t valid JSON.");
+  err.code = "invalid_json"; err.text = t;
+  throw err;
+}
+
+/** Validate a reply (parsed JSON, or raw text to parse). Throws when it doesn't have the right shape. */
 export function parseHumReply(reply) {
+  if (typeof reply === "string") reply = parseJsonReply(reply);
   if (!reply || typeof reply !== "object" || typeof reply.notation !== "string" || !reply.notation.trim()) {
     throw new Error("The answer didn’t contain any notation.");
   }
@@ -63,7 +82,7 @@ export function checkNotation(text) {
 /**
  * Ask for notation, checking the answer and asking for repairs if needed.
  * @param {{notation: string, request: string, guide: string,
- *          ask: (prompt: string) => Promise<unknown>, repairs?: number}} p
+ *          ask: (prompt: string) => Promise<string | object>, repairs?: number}} p
  * @returns {Promise<{notation: string, explanation: string, problems: string[], attempts: number}>}
  *   `problems` is empty when the final answer converts cleanly.
  */

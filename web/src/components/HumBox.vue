@@ -16,7 +16,8 @@ const short = s => (s.length > 90 ? s.slice(0, 88) + "…" : s);
 
 <template>
   <section class="hum" aria-labelledby="hum-label">
-    <label id="hum-label" for="hum-input">Hum it to Claude</label>
+    <label id="hum-label" for="hum-input">{{ st.via === "claude" ? "Hum it to Claude" : "Hum it" }}
+      <span v-if="st.via && st.via !== 'claude'" class="via">via {{ st.via }}</span></label>
     <div class="row">
       <textarea id="hum-input" v-model="request" rows="2" @keydown="onKey"
                 placeholder="ta-ta-ta-TAAM, rising and heroic. Add it as two new bars after bar 4."></textarea>
@@ -57,6 +58,7 @@ label { display: block; font-weight: 600; margin-bottom: 6px; }
 .row { display: flex; gap: 8px; align-items: flex-start; }
 .row textarea { flex: 1; min-height: 0; white-space: pre-wrap; font: inherit; padding: 8px 10px; resize: vertical; }
 .buttons { display: flex; flex-direction: column; gap: 6px; }
+.via { font-weight: 400; color: var(--muted); font-size: 0.85rem; margin-left: 6px; }
 .note { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
 .result p { margin: 8px 0; }
 .result pre { max-height: 220px; }

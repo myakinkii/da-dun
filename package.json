@@ -4,14 +4,24 @@
   "private": true,
   "description": "LLM assisted music creation tool: tiny text notation -> midicsv CSV -> MIDI, with a browser editor.",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/myakinkii/da-dun.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/myakinkii/da-dun.git"
+  },
   "type": "module",
-  "workspaces": ["core", "web"],
+  "workspaces": [
+    "core",
+    "web",
+    "server"
+  ],
   "scripts": {
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
-    "test": "npm test -w core && npm test -w web",
+    "start": "npm start -w server",
+    "test": "npm test -w core && npm test -w web && npm test -w server",
     "fixtures": "npm run fixtures -w core"
   },
-  "engines": { "node": ">=20.19" }
+  "engines": {
+    "node": ">=20.19"
+  }
 }

@@ -80,7 +80,7 @@ export function useSketchbook() {
   const compiled = shallowRef(compileText(""));
   const syncNote = ref("Edits are saved in this browser as you type.");
   const banner = shallowRef(null);                // {text, actions: [{label, fn}]}
-  const humState = reactive({ available: false, busy: false, note: "", proposal: null });
+  const humState = reactive({ available: false, via: null, busy: false, note: "", proposal: null });
   let synced = "", saveTimer = 0, compileTimer = 0, previewing = false, remote = null, humCtl = null;
 
   // ---- menu entries ----
@@ -266,18 +266,37 @@ export function useSketchbook() {
     prompt_too_large: "This sketch is too long to send in one go.",
     session_expired: "Your session expired. Reload the page and try again.",
   };
+  // Outside claude.ai, the hum box can use a da-dun server on the same origin
+  // (npm start, or npm run dev with the server running): POST /api/hum.
+  const serverHumP = capability("sample").then(s => {
+    if (s || typeof location === "undefined" || !/^https?:$/.test(location.protocol)) return null;
+    return fetch("/api/health").then(r => (r.ok ? r.json() : null)).then(j => (j && j.hum ? j : null)).catch(() => null);
+  });
+  async function serverHum(body, signal) {
+    let res;
+    try {
+      res = await fetch("/api/hum", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal });
+    } catch (e) {
+      throw signal.aborted ? { code: "cancelled" } : { message: "Couldn’t reach the da-dun server. Is it still running?" };
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw { code: data && data.code === "invalid_json" ? "invalid_json" : undefined, message: (data && data.error) || `Server error ${res.status}.` };
+    return data;
+  }
   const humError = e => HUM_ERRORS[e && e.code] ||
     (e && e.code ? `Asking Claude isn’t working right now (${e.code}).` : (e && e.message) || "Something went wrong.");
   async function humAsk(request) {
     request = request.trim();
-    const sample = await capability("sample");
-    if (!request || !sample || humCtl) return false;
+    const sample = await capability("sample"), server = sample ? null : await serverHumP;
+    if (!request || (!sample && !server) || humCtl) return false;
     const ctl = humCtl = new AbortController();
     humState.busy = true; humState.proposal = null; humState.note = "Thinking…";
     const base = text.value, sketch = current.value.docId;
     try {
-      const r = await hum({ notation: base, request, guide: GUIDE, repairs: 1,
-                            ask: p => sample.json(p, { signal: ctl.signal, cache: false }) });
+      const r = sample
+        ? await hum({ notation: base, request, guide: GUIDE, repairs: 1,
+                      ask: p => sample.json(p, { signal: ctl.signal, cache: false }) })
+        : await serverHum({ notation: base, request }, ctl.signal);
       const item = { id: Date.now().toString(36), request, explanation: r.explanation, notation: r.notation,
                      problems: r.problems, repaired: r.attempts > 1, at: now(),
                      status: r.notation.trim() === base.trim() ? "answer" : "open" };
@@ -349,7 +368,8 @@ export function useSketchbook() {
   function start() {
     open(local.get("last") || "ex:" + EXAMPLES[0].id);
     connect();
-    capability("sample").then(s => { humState.available = !!s; });
+    capability("sample").then(s => { if (s) { humState.available = true; humState.via = "claude"; } });
+    serverHumP.then(j => { if (j) { humState.available = true; humState.via = j.llm || "server"; } });
     window.addEventListener("beforeunload", () => { if (saveTimer) saveNow(); });
   }
 

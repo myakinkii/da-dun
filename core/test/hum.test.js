@@ -51,3 +51,21 @@ test("replies without notation are rejected", () => {
   assert.equal(parseHumReply({ notation: "piano: c\r\n" }).notation, "piano: c\n");
   assert.deepEqual(checkNotation("piano: c d e f |"), []);
 });
+
+test("tolerant JSON: plain, fenced, or with a sentence around it", async () => {
+  const { parseJsonReply } = await import("../src/hum.js");
+  const obj = { notation: "piano: c", explanation: "x" };
+  const j = JSON.stringify(obj);
+  assert.deepEqual(parseJsonReply(j), obj);
+  assert.deepEqual(parseJsonReply("```json\n" + j + "\n```"), obj);
+  assert.deepEqual(parseJsonReply("Here you go:\n" + j + "\nEnjoy!"), obj);
+  assert.deepEqual(parseJsonReply("Sure.\n```\n" + j + "\n```\nThat adds a C."), obj);
+  assert.throws(() => parseJsonReply("no json here"), e => e.code === "invalid_json" && e.text === "no json here");
+});
+
+test("ask may return raw text; it's parsed for you", async () => {
+  const r = await hum({ notation: sketch, request: "x", guide,
+    ask: async () => "Here is my answer:\n```json\n" + JSON.stringify({ notation: sketch, explanation: "same" }) + "\n```" });
+  assert.equal(r.explanation, "same");
+  assert.deepEqual(r.problems, []);
+});
