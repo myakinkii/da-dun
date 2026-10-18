@@ -26,6 +26,16 @@ test("anthropic: request shape and text extraction", async () => {
   assert.deepEqual(c.body.messages, [{ role: "user", content: "prompt" }]);
 });
 
+test("anthropic: OAuth token is sent as a bearer, not as an API key", async () => {
+  const f = fakeFetch(() => ({ body: { content: [{ type: "text", text: "ok" }] } }));
+  assert.equal(await makeAsk({ provider: "anthropic", authToken: "tok", fetch: f })("p"), "ok");
+  const h = f.calls[0].headers;
+  assert.equal(h.authorization, "Bearer tok");
+  assert.equal(h["anthropic-beta"], "oauth-2025-04-20");
+  assert.equal(h["x-api-key"], undefined);
+  assert.match(f.calls[0].body.system, /^You are Claude Code/);
+});
+
 test("openai-compatible: base URL, bearer token, reply text", async () => {
   const f = fakeFetch(() => ({ body: { choices: [{ message: { content: "hi" } }] } }));
   const ask = makeAsk({ provider: "openai", apiKey: "sk", model: "m1", baseUrl: "http://localhost:11434/v1/", fetch: f });
@@ -47,5 +57,7 @@ test("choosing a backend from the environment", () => {
   assert.equal(askFromEnv({ ANTHROPIC_API_KEY: "k", DA_DUN_MODEL: "claude-opus-5-5" }).describe, "anthropic (claude-opus-5-5)");
   assert.equal(askFromEnv({ DA_DUN_LLM_URL: "http://localhost:11434/v1", DA_DUN_MODEL: "llama" }).describe, "openai (llama)");
   assert.throws(() => askFromEnv({ OPENAI_API_KEY: "sk" }), /needs DA_DUN_MODEL/);
-  assert.throws(() => askFromEnv({ DA_DUN_LLM: "anthropic" }), /needs ANTHROPIC_API_KEY/);
+  assert.throws(() => askFromEnv({ DA_DUN_LLM: "anthropic" }), /needs ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN/);
+  assert.equal(askFromEnv({ CLAUDE_CODE_OAUTH_TOKEN: "t" }).describe, "anthropic (claude-sonnet-5-5, oauth)");
+  assert.equal(askFromEnv({ CLAUDE_CODE_OAUTH_TOKEN: "t", ANTHROPIC_API_KEY: "k" }).describe, "anthropic (claude-sonnet-5-5)");
 });

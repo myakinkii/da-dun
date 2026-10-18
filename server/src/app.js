@@ -81,7 +81,7 @@ export function createApp({ ask = null, llm = null, guide, staticFile, cors, lim
         return res.end(Buffer.from(m.bytes));
       }
       if (pathname === "/api/hum") {
-        if (!ask) throw new HttpError(503, "no_llm", "This server has no LLM configured. Set ANTHROPIC_API_KEY (or see the server README).");
+        if (!ask) throw new HttpError(503, "no_llm", "This server has no LLM configured. Set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN (or see the server README).");
         const notation = str(body, "notation"), request = str(body, "request").trim();
         if (!request) throw new HttpError(400, "bad_request", "\"request\" is empty.");
         const ctl = new AbortController();

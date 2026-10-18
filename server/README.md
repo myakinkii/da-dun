@@ -17,12 +17,15 @@ server sends `/api` to port 8787.
 | Variable            | Meaning                                                              |
 |---------------------|----------------------------------------------------------------------|
 | `ANTHROPIC_API_KEY` | use the Anthropic API (default model `claude-sonnet-5-5`)            |
+| `CLAUDE_CODE_OAUTH_TOKEN` | use a Claude Code subscription token instead of an API key (same default model; the API key wins if both are set). Requests then carry the Claude Code identity line the API requires for these tokens, and your subscription's usage limits apply |
 | `OPENAI_API_KEY`    | use an OpenAI-compatible API (needs `DA_DUN_MODEL`)                  |
 | `DA_DUN_LLM`        | `anthropic` or `openai`, when both keys are set                      |
 | `DA_DUN_MODEL`      | model name                                                           |
 | `DA_DUN_LLM_URL`    | base URL for OpenAI-compatible servers, e.g. `http://localhost:11434/v1` for Ollama (no key needed) |
 | `PORT`, `HOST`      | where to listen (default `127.0.0.1:8787`)                           |
 | `DA_DUN_CORS`       | allow cross-origin browser calls, e.g. `*` (off by default)          |
+
+The server reads `.env` from the repo root (variables already set win).
 
 Without any model the server still converts notation; only `/api/hum` answers
 503. It listens on 127.0.0.1 by default because the hum box spends your API
