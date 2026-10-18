@@ -29,7 +29,8 @@ Rules for your answer:
 - when the request involves chords or a progression and the sketch has no key
   line, add one (like "key A" or "key F# minor"): the editor uses it to number
   the chords. Write chords as [c e g] in their own part, one chord per bar or beat
-- new instruments go on their own line; drums use the step-grid syntax
+- new instruments go on their own line; drums use the step grid for straight
+  grooves, or notes (x4 x4t x8t, r for rests) for triplets and swing
 - reply with ONLY a JSON object, no other text:
   {"notation": "<the complete updated sketch>", "explanation": "<one to three plain sentences: what you wrote and the musical choices you made, without jargon>"}`;
 

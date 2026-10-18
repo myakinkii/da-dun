@@ -59,3 +59,12 @@ test("melody and single notes are not chords; drums are ignored; the fullest par
   assert.deepEqual(chords("key C\npiano: [c e g]1 |\npiano (left) o3: [c e g b]1 |\nbass o2: c,1 |").length, 1);
   assert.deepEqual(chords("key C\npiano: [c e g]1 |\nbass o2: c,1 |"), ["C I"]);
 });
+
+test("Five Spice: a minor-key jazz vamp in 5/4, with inversions", () => {
+  const text = readFileSync(new URL("cases/five-spice.txt", import.meta.url), "utf8");
+  const found = [...new Set(analyzeChords(song(text)).map(c => `${c.name} ${c.roman}`))];
+  assert.equal(notate(text).key, "D minor");
+  for (const c of ["Dm7 i7", "Bbmaj7/D VImaj7"]) assert.ok(found.includes(c), `${c} in ${found.join(", ")}`);
+  assert.ok(found.some(c => /^G7\/D IV/.test(c)), found.join(", "));      // G7 over D: the 3+2 vamp's second chord
+  assert.ok(found.some(c => /^A7\/\S+ V/.test(c)), found.join(", "));     // A7 with C# in the bass, the dominant
+});

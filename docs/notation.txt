@@ -56,8 +56,21 @@ BARS
                           also works in drum lines:  kick: @9 |x...x...x...x...|
 
 DRUMS
-  kick:  |x...x...x...x...|   one character per 16th note
-  x  hit    X  accented hit    .  or  -  silence
+  One line per drum sound, in either of two ways. The editor reads each
+  line as a step grid first, and as notes if the grid doesn't fit.
+
+  Step grid, for straight grooves:
+    kick:  |x...x...x...x...|   one character per 16th note
+    x  hit    X  accented hit    .  or  -  silence
+
+  Notes, for anything else (triplets, swing, odd rhythms):
+    kick:  x r x r |            hits on beats 1 and 3
+    ride:  x4 x4t x8t x4 x4t x8t |   swung: each 4t 8t is long-short
+    x  hit    X  or  >x  accented hit    r  R  rests
+    Durations work as in melodies and carry over from line to line.
+
+  Both kinds of line take | bar lines and @N, and a part can mix them,
+  one kind per line.
 
   Names: kick, snare, clap, hat, open hat, pedal hat, crash, ride,
   ride bell, rim, tom, high tom, mid tom, low tom, floor tom,

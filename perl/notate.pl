@@ -16,8 +16,9 @@
 #     [c e g] chord, >[c e g] accented chord
 #     |       bar line (checked against the time signature)
 #     @15     continue from bar 15 (works in drum lines too)
-#   Drum parts (one line per sound, each character is a 16th note):
+#   Drum parts (one line per sound): a step grid, one character per 16th,
 #     kick:  |x...x...x...x...|      x hit, X accented hit, . or - silence
+#   or, when the grid doesn't fit, rhythm notation: x4 x8t X >x r R | @N
 #   Same part name twice continues the part. "piano (left):" makes a
 #   separate part with the same instrument.
 
@@ -191,35 +192,92 @@ sub parse_melody {
 }
 
 # ---- drum parts ----
-sub parse_drum {
-    my ($p) = @_;
-    my @ev; my $t = 0; my $step = $PPQ / 4; my $bar_steps = $bar_ticks / $step;
-    my $n = $p->{num};
-    for my $c (@{$p->{chunks}}) {
-        my ($line, $body) = @$c;
-        $body =~ s/\s+//g;
-        for my $piece (split /(@\d+)/, $body) {
-          if ($piece =~ /^@(\d+)$/) {          # continue from bar N
-              my $target = ($1 - 1) * $bar_ticks;
-              if ($1 < 1 || $target < $t) { warn_at($line, "$p->{name}: \@$1, but this part is already past the start of bar $1"); }
-              else { $t = $target; }
-              next;
-          }
-          for my $bar (split /\|/, $piece) {
+# Drum lines come in two modes. Each line is read as a step grid first
+# (|x...x...|, one character per 16th); if that has problems but the line reads
+# cleanly as rhythm notation (x4 x8t X >x r R, durations as in melodies), the
+# notation wins. If neither fits, the grid's problems are reported.
+sub drum_grid {
+    my ($p, $body, $t) = @_;
+    my (@ev, @w); my $step = $PPQ / 4; my $bar_steps = $bar_ticks / $step; my $n = $p->{num};
+    (my $b = $body) =~ s/\s+//g;
+    for my $piece (split /(@\d+)/, $b) {
+        if ($piece =~ /^@(\d+)$/) {          # continue from bar N
+            my $target = ($1 - 1) * $bar_ticks;
+            if ($1 < 1 || $target < $t) { push @w, "$p->{name}: \@$1, but this part is already past the start of bar $1"; }
+            else { $t = $target; }
+            next;
+        }
+        for my $bar (split /\|/, $piece) {
             next if $bar eq '';
-            warn_at($line, "$p->{name}: bar \"$bar\" has " . length($bar) . " steps, expected $bar_steps")
+            push @w, "$p->{name}: bar \"$bar\" has " . length($bar) . " steps, expected $bar_steps"
                 if length($bar) != $bar_steps;
             for my $ch (split //, $bar) {
                 if ($ch eq 'x' || $ch eq 'X') {
-                    my $v = $ch eq 'X' ? 120 : 90;
-                    push @ev, [$t, 1, $n, $v], [$t + $step / 2, 0, $n, 0];
+                    push @ev, [$t, 1, $n, $ch eq 'X' ? 120 : 90], [$t + $step / 2, 0, $n, 0];
                 } elsif ($ch ne '.' && $ch ne '-') {
-                    warn_at($line, "$p->{name}: \"$ch\" isn't x, X, . or -");
+                    push @w, "$p->{name}: \"$ch\" isn't x, X, . or -";
                 }
                 $t += $step;
             }
-          }
         }
+    }
+    return (\@ev, $t, \@w);
+}
+
+sub drum_notes {
+    my ($p, $body, $t, $dur) = @_;
+    my (@ev, @w); my $n = $p->{num};
+    my $bar_start = $t; my $bar_no = int($t / $bar_ticks) + 1;
+    for my $tok ($body =~ /(>?\[[^\]]*\][^\s|]*|[^\s|]+|\|)/g) {
+        if ($tok eq '|') {
+            my $len = $t - $bar_start;
+            if ($len != $bar_ticks && !($bar_no == 1 && $len < $bar_ticks && $len > 0)) {
+                push @w, sprintf("%s, bar %d has %s beats, expected %s", $p->{name}, $bar_no, $len / $PPQ * $tsd / 4, $tsn);
+            }
+            $bar_start = $t; $bar_no++; next;
+        }
+        if ($tok =~ /^@(\d+)$/) {
+            my $target = ($1 - 1) * $bar_ticks;
+            if ($1 < 1 || $target < $t) { push @w, "$p->{name}: \@$1, but this part is already past the start of bar $1"; next; }
+            $t = $target; $bar_start = $t; $bar_no = $1; next;
+        }
+        if ($tok eq 'R') {
+            my $left = $bar_ticks - ($t - $bar_start);
+            if ($left <= 0) { push @w, "$p->{name}: R in bar $bar_no, but that bar is already full"; next; }
+            $t += $left; next;
+        }
+        my ($acc, $what, $num, $trip, $dots) = $tok =~ /^(>?)([xXr])(\d+)?(t?)(\.*)$/
+            or (push(@w, "$p->{name}: can't read \"$tok\""), next);
+        if (defined $num) {
+            unless ($num =~ /^(1|2|4|8|16|32|64)$/) { push @w, "$p->{name}: duration $num isn't 1,2,4,8,16,32"; next; }
+            $dur = 4 * $PPQ / $num;
+            $dur = $dur * 2 / 3 if $trip;
+            my $add = $dur; for (1 .. length $dots) { $add /= 2; $dur += $add; }
+        } elsif ($trip) {
+            push @w, "$p->{name}: \"t\" needs a number in front, like 8t"; next;
+        } elsif (length $dots) {
+            $dur = 4 * $PPQ / 4; my $add = $dur; for (1 .. length $dots) { $add /= 2; $dur += $add; }
+        }
+        if ($what ne 'r') {
+            push @ev, [$t, 1, $n, ($acc || $what eq 'X') ? 120 : 90], [$t + $dur / 2, 0, $n, 0];
+        }
+        $t += $dur;
+    }
+    return (\@ev, $t, \@w, $dur);
+}
+
+sub parse_drum {
+    my ($p) = @_;
+    my @ev; my $t = 0; my $dur = $PPQ;           # note-mode durations stick, like in melodies
+    for my $c (@{$p->{chunks}}) {
+        my ($line, $body) = @$c;
+        my ($ev, $t2, $w) = drum_grid($p, $body, $t);
+        if (@$w) {
+            my ($nev, $nt, $nw, $ndur) = drum_notes($p, $body, $t, $dur);
+            if (!@$nw) { ($ev, $t2, $w) = ($nev, $nt, $nw); $dur = $ndur; }
+        }
+        push @ev, @$ev; $t = $t2;
+        warn_at($line, $_) for @$w;
     }
     return (\@ev, $t);
 }

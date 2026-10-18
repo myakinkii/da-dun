@@ -1,0 +1,13 @@
+title Drum modes
+tempo 120
+time 4/4
+# Each drum line is a grid if it fits, otherwise rhythm notation.
+kick:  |x...x...x...x...|
+kick:  x r x r |
+snare: x x x x |
+hat:   x8 X >x x x8t x x X x x | x4. x8 R |
+# a part can mix the modes line by line: a grid for bar 5, notes for bar 6, @ in both
+ride:  @5 |x.x.x.x.x.x.x.x.|
+ride:  x4t x8t x4t x8t x2 |
+ride:  @8 x1 |
+crash: @8 |X...............|

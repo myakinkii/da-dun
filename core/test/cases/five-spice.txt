@@ -1,0 +1,43 @@
+title Five Spice
+tempo 168
+time 5/4
+key D minor
+
+# An original jazz sketch in 5/4, felt as 3+2: Dm7 for three beats, G7 for two.
+# Swing comes from triplets: 4t 8t is one long-short swung pair.
+
+# Bars 3-10: the melody. Bar 9 detours through Bbmaj7 and A7, then it settles on D
+piano (right): @3 r4 a4t c'8t d'4 c'4t a8t g4 | f4. e8 d4 r4t f8t a4 | b4t a8t g4 f4t g8t a2 | r2 c'4t d'8t e'4 d'4 |
+piano (right): f'4 e'4t d'8t c'4 a4t c'8t d'4 | a2. r4t g8t a4 | bb4t a8t f4 d4 c#4t e8t g4 | f4t e8t d2 r2 |
+# Bars 11-12: a pickup, then a long E ringing over the last chord
+piano (right): r2. a4t c'8t d'4 | >e'1~ e'4 |
+
+# The comping chords, swung: Dm7 on 1 and the swung "and" of 2, G7 on 4 and the "and" of 5
+# In D minor:  Dm7 G7 = i7 IV7,  Bbmaj7 A7 = VImaj7 V7
+piano (comp) o3: [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t | [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t |
+piano (comp) o3: [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t | [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t |
+piano (comp) o3: [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t | [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t |
+piano (comp) o3: [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t | [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t |
+piano (comp) o3: [d f a bb]4 r4t [d f a bb]8t~ [d f a bb]4 [c# e g a]4 r4t [c# e g a]8t | [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t |
+piano (comp) o3: [d f a c']4 r4t [d f a c']8t~ [d f a c']4 [d f g b]4 r4t [d f g b]8t | >[d f a c']1~ [d f a c']4 |
+
+# The left hand walks the bass, two bars that alternate; in bar 9 C# leads back to D
+piano (left) o2: d a c' g b | d f a g f | d a c' g b | d f a g f | d a c' g b | d f a g f |
+piano (left) o2: d a c' g b | d f a g f | bb, d f a, c# | d a c' g b | d f a g f | >d1~ d4 |
+
+# Drums: the ride, hi-hat and rim swing (written as notes); the kick stays on the grid, marking the 3+2
+# ride "ding, ding-a ding, ding-a": each 4t 8t is a swung long-short pair
+ride:      x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t |
+ride:      x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t |
+ride:      x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t |
+pedal hat: r4 x r x r | r4 x r x r | r4 x r x r | r4 x r x r |
+pedal hat: r4 x r x r | r4 x r x r | r4 x r x r | r4 x r x r |
+pedal hat: r4 x r x r | r4 x r x r | r4 x r x r |
+# rim on the swung "and" of 3 and on beat 5
+rim:       @3 r4 r r4t x8t r4 x4 | r4 r r4t x8t r4 x4 | r4 r r4t x8t r4 x4 | r4 r r4t x8t r4 x4 |
+rim:       r4 r r4t x8t r4 x4 | r4 r r4t x8t r4 x4 | r4 r r4t x8t r4 x4 | r4 r r4t x8t r4 x4 |
+rim:       r4 r r4t x8t r4 x4 |
+kick:      |x...........x.......|x...........x.......|x...........x.......|x...........x.......|
+kick:      |x...........x.......|x...........x.......|x...........x.......|x...........x.......|
+kick:      |x...........x.......|x...........x.......|x...........x.......|X...................|
+crash:     @12 |X...................|

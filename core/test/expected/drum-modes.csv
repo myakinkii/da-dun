@@ -1,0 +1,84 @@
+0, 0, Header, 1, 2, 480
+1, 0, Start_track
+1, 0, Title_t, "Drum modes"
+1, 0, Time_signature, 4, 2, 24, 8
+1, 0, Tempo, 500000
+1, 15360, End_track
+2, 0, Start_track
+2, 0, Title_t, "Drums"
+2, 0, Note_on_c, 9, 36, 90
+2, 0, Note_on_c, 9, 38, 90
+2, 0, Note_on_c, 9, 42, 90
+2, 60, Note_off_c, 9, 36, 0
+2, 120, Note_off_c, 9, 42, 0
+2, 240, Note_off_c, 9, 38, 0
+2, 240, Note_on_c, 9, 42, 120
+2, 360, Note_off_c, 9, 42, 0
+2, 480, Note_on_c, 9, 36, 90
+2, 480, Note_on_c, 9, 38, 90
+2, 480, Note_on_c, 9, 42, 120
+2, 540, Note_off_c, 9, 36, 0
+2, 600, Note_off_c, 9, 42, 0
+2, 720, Note_off_c, 9, 38, 0
+2, 720, Note_on_c, 9, 42, 90
+2, 840, Note_off_c, 9, 42, 0
+2, 960, Note_on_c, 9, 36, 90
+2, 960, Note_on_c, 9, 38, 90
+2, 960, Note_on_c, 9, 42, 90
+2, 1020, Note_off_c, 9, 36, 0
+2, 1040, Note_off_c, 9, 42, 0
+2, 1120, Note_on_c, 9, 42, 90
+2, 1200, Note_off_c, 9, 38, 0
+2, 1200, Note_off_c, 9, 42, 0
+2, 1280, Note_on_c, 9, 42, 90
+2, 1360, Note_off_c, 9, 42, 0
+2, 1440, Note_on_c, 9, 36, 90
+2, 1440, Note_on_c, 9, 38, 90
+2, 1440, Note_on_c, 9, 42, 120
+2, 1500, Note_off_c, 9, 36, 0
+2, 1520, Note_off_c, 9, 42, 0
+2, 1600, Note_on_c, 9, 42, 90
+2, 1680, Note_off_c, 9, 38, 0
+2, 1680, Note_off_c, 9, 42, 0
+2, 1760, Note_on_c, 9, 42, 90
+2, 1840, Note_off_c, 9, 42, 0
+2, 1920, Note_on_c, 9, 36, 90
+2, 1920, Note_on_c, 9, 42, 90
+2, 2160, Note_off_c, 9, 36, 0
+2, 2280, Note_off_c, 9, 42, 0
+2, 2640, Note_on_c, 9, 42, 90
+2, 2760, Note_off_c, 9, 42, 0
+2, 2880, Note_on_c, 9, 36, 90
+2, 3120, Note_off_c, 9, 36, 0
+2, 7680, Note_on_c, 9, 51, 90
+2, 7740, Note_off_c, 9, 51, 0
+2, 7920, Note_on_c, 9, 51, 90
+2, 7980, Note_off_c, 9, 51, 0
+2, 8160, Note_on_c, 9, 51, 90
+2, 8220, Note_off_c, 9, 51, 0
+2, 8400, Note_on_c, 9, 51, 90
+2, 8460, Note_off_c, 9, 51, 0
+2, 8640, Note_on_c, 9, 51, 90
+2, 8700, Note_off_c, 9, 51, 0
+2, 8880, Note_on_c, 9, 51, 90
+2, 8940, Note_off_c, 9, 51, 0
+2, 9120, Note_on_c, 9, 51, 90
+2, 9180, Note_off_c, 9, 51, 0
+2, 9360, Note_on_c, 9, 51, 90
+2, 9420, Note_off_c, 9, 51, 0
+2, 9600, Note_on_c, 9, 51, 90
+2, 9760, Note_off_c, 9, 51, 0
+2, 9920, Note_on_c, 9, 51, 90
+2, 10000, Note_off_c, 9, 51, 0
+2, 10080, Note_on_c, 9, 51, 90
+2, 10240, Note_off_c, 9, 51, 0
+2, 10400, Note_on_c, 9, 51, 90
+2, 10480, Note_off_c, 9, 51, 0
+2, 10560, Note_on_c, 9, 51, 90
+2, 11040, Note_off_c, 9, 51, 0
+2, 13440, Note_on_c, 9, 51, 90
+2, 13440, Note_on_c, 9, 49, 120
+2, 13500, Note_off_c, 9, 49, 0
+2, 14400, Note_off_c, 9, 51, 0
+2, 14400, End_track
+0, 0, End_of_file

@@ -1,0 +1,7 @@
+title Swung ride in 5/4
+tempo 168
+time 5/4
+# the ride swings: each 4t 8t pair is one long-short swung pair
+ride:      x4 x4t x8t x4 x4 x4t x8t | x4 x4t x8t x4 x4 x4t x8t |
+pedal hat: r4 x r x r | r4 x r x r |
+kick:      |x...........x.......|x...........x.......|

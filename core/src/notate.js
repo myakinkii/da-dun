@@ -125,42 +125,106 @@ function parseMelody(p, song, warn) {
   return { ev, len: t };
 }
 
+// Drum lines come in two modes. Each line is read as a step grid first
+// (|x...x...|, one character per 16th); if that has problems but the line reads
+// cleanly as rhythm notation (x4 x8t X >x r R, durations as in melodies), the
+// notation wins. If neither fits, the grid's problems are reported.
+// Same reading as perl/notate.pl.
+function drumGrid(p, song, body, col0, line, t) {
+  const ev = [], w = [];
+  const step = PPQ / 4, barSteps = song.barTicks / step;
+  let bar = [];
+  const endBar = () => {
+    if (!bar.length) return;
+    if (bar.length !== barSteps) w.push(`${p.name}: bar "${bar.map(b => b.ch).join("")}" has ${bar.length} steps, expected ${barSteps}`);
+    for (const { ch, col } of bar) {
+      if (ch === "x" || ch === "X") {
+        ev.push([t, 1, p.num, ch === "X" ? 120 : 90, { line, col: col0 + col, len: 1 }], [t + step / 2, 0, p.num, 0]);
+      } else if (ch !== "." && ch !== "-") {
+        w.push(`${p.name}: "${ch}" isn't x, X, . or -`);
+      }
+      t += step;
+    }
+    bar = [];
+  };
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (/\s/.test(ch)) continue;
+    if (ch === "|") { endBar(); continue; }
+    if (ch === "@" && /\d/.test(body[i + 1] || "")) {
+      endBar();
+      let j = i + 1; while (j < body.length && /\d/.test(body[j])) j++;
+      const n = Number(body.slice(i + 1, j)), target = (n - 1) * song.barTicks;
+      if (n < 1 || target < t) w.push(`${p.name}: @${n}, but this part is already past the start of bar ${n}`);
+      else t = target;
+      i = j - 1;
+      continue;
+    }
+    bar.push({ ch, col: i });
+  }
+  endBar();
+  return { ev, t, w };
+}
+
+function drumNotes(p, song, body, col0, line, t, dur) {
+  const ev = [], w = [], { barTicks } = song;
+  let barStart = t, barNo = Math.floor(t / barTicks) + 1;
+  for (const mt of body.matchAll(/>?\[[^\]]*\][^\s|]*|[^\s|]+|\|/g)) {
+    const tok = mt[0];
+    if (tok === "|") {
+      const len = t - barStart;
+      if (len !== barTicks && !(barNo === 1 && len < barTicks && len > 0)) {
+        w.push(`${p.name}, bar ${barNo} has ${fmtNum(len / PPQ * song.tsd / 4)} beats, expected ${song.tsn}`);
+      }
+      barStart = t; barNo++;
+      continue;
+    }
+    let m = tok.match(/^@(\d+)$/);
+    if (m) {
+      const n = Number(m[1]), target = (n - 1) * barTicks;
+      if (n < 1 || target < t) { w.push(`${p.name}: @${m[1]}, but this part is already past the start of bar ${m[1]}`); continue; }
+      t = target; barStart = t; barNo = n;
+      continue;
+    }
+    if (tok === "R") {
+      const left = barTicks - (t - barStart);
+      if (left <= 0) { w.push(`${p.name}: R in bar ${barNo}, but that bar is already full`); continue; }
+      t += left;
+      continue;
+    }
+    m = tok.match(/^(>?)([xXr])(\d+)?(t?)(\.*)$/);
+    if (!m) { w.push(`${p.name}: can't read "${tok}"`); continue; }
+    const [, acc, what, num, trip, dots] = m;
+    if (num !== undefined) {
+      if (!/^(1|2|4|8|16|32|64)$/.test(num)) { w.push(`${p.name}: duration ${num} isn't 1,2,4,8,16,32`); continue; }
+      dur = 4 * PPQ / Number(num);
+      if (trip) dur = dur * 2 / 3;
+      dur = addDots(dur, dots);
+    } else if (trip) {
+      w.push(`${p.name}: "t" needs a number in front, like 8t`); continue;
+    } else if (dots.length) {
+      dur = addDots(PPQ, dots);
+    }
+    if (what !== "r") {
+      ev.push([t, 1, p.num, acc || what === "X" ? 120 : 90, { line, col: col0 + mt.index, len: tok.length }], [t + dur / 2, 0, p.num, 0]);
+    }
+    t += dur;
+  }
+  return { ev, t, w, dur };
+}
+
 function parseDrum(p, song, warn) {
   const ev = [];
-  const step = PPQ / 4, barSteps = song.barTicks / step;
-  let t = 0;
+  let t = 0, dur = PPQ;                          // note-mode durations stick, like in melodies
   for (const [line, body, col0] of p.chunks) {
-    // same reading as perl/notate.pl: whitespace ignored, @N jumps, | separates bars
-    let bar = [];
-    const endBar = () => {
-      if (!bar.length) return;
-      if (bar.length !== barSteps) warn(line, `${p.name}: bar "${bar.map(b => b.ch).join("")}" has ${bar.length} steps, expected ${barSteps}`);
-      for (const { ch, col } of bar) {
-        if (ch === "x" || ch === "X") {
-          ev.push([t, 1, p.num, ch === "X" ? 120 : 90, { line, col: col0 + col, len: 1 }], [t + step / 2, 0, p.num, 0]);
-        } else if (ch !== "." && ch !== "-") {
-          warn(line, `${p.name}: "${ch}" isn't x, X, . or -`);
-        }
-        t += step;
-      }
-      bar = [];
-    };
-    for (let i = 0; i < body.length; i++) {
-      const ch = body[i];
-      if (/\s/.test(ch)) continue;
-      if (ch === "|") { endBar(); continue; }
-      if (ch === "@" && /\d/.test(body[i + 1] || "")) {
-        endBar();
-        let j = i + 1; while (j < body.length && /\d/.test(body[j])) j++;
-        const n = Number(body.slice(i + 1, j)), target = (n - 1) * song.barTicks;
-        if (n < 1 || target < t) warn(line, `${p.name}: @${n}, but this part is already past the start of bar ${n}`);
-        else t = target;
-        i = j - 1;
-        continue;
-      }
-      bar.push({ ch, col: i });
+    let r = drumGrid(p, song, body, col0, line, t);
+    if (r.w.length) {
+      const n = drumNotes(p, song, body, col0, line, t, dur);
+      if (!n.w.length) { r = n; dur = n.dur; }
     }
-    endBar();
+    ev.push(...r.ev);
+    t = r.t;
+    for (const m of r.w) warn(line, m);
   }
   return { ev, len: t };
 }
