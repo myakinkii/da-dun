@@ -81,7 +81,9 @@ export function useSketchbook() {
   const syncNote = ref("Edits are saved in this browser as you type.");
   const banner = shallowRef(null);                // {text, actions: [{label, fn}]}
   const humState = reactive({ available: false, via: null, busy: false, note: "", proposal: null });
-  const previewing = ref(false);         // the player holds Claude's suggestion, not the sketch
+  // Which version the player holds while a suggestion is open: "mine" or "claude".
+  const listening = ref("mine");
+  const previewing = computed(() => listening.value === "claude");
   let synced = "", saveTimer = 0, compileTimer = 0, remote = null, humCtl = null;
 
   // ---- menu entries ----
@@ -108,7 +110,7 @@ export function useSketchbook() {
     clearTimeout(compileTimer); compileTimer = 0;
     const c = compileText(text.value);
     compiled.value = c;
-    if (c.ok && !previewing.value) player.load(c.song);
+    if (c.ok && listening.value === "mine") player.load(c.song);
   }
   function onInput(t) {
     text.value = t;
@@ -252,8 +254,8 @@ export function useSketchbook() {
   }
   function closeProposal(restorePlayer = true) {
     humState.proposal = null; humState.note = "";
-    if (previewing.value) {
-      previewing.value = false;
+    if (listening.value === "claude") {
+      listening.value = "mine";
       if (restorePlayer && compiled.value.ok) player.load(compiled.value.song);
     }
   }
@@ -312,13 +314,24 @@ export function useSketchbook() {
     }
   }
   const humStop = () => { if (humCtl) humCtl.abort(); };
+  // A/B: switch the player between your sketch and the open suggestion. If it's
+  // playing, it carries on from the same moment in the other version.
+  function listen(which) {
+    if (which === listening.value) return true;
+    if (which === "claude") {
+      const p = humState.proposal; if (!p) return false;
+      const c = compileText(p.notation);
+      if (!c.ok) { humState.note = c.error; return false; }
+      listening.value = "claude";
+      player.load(c.song);
+    } else {
+      listening.value = "mine";
+      if (compiled.value.ok) player.load(compiled.value.song);
+    }
+    return true;
+  }
   function humPreview() {
-    const p = humState.proposal; if (!p) return;
-    const c = compileText(p.notation);
-    if (!c.ok) { humState.note = c.error; return; }
-    previewing.value = true;
-    player.load(c.song);
-    player.play(0);
+    if (listen("claude")) player.play(0);
   }
   function humUse() {
     const p = humState.proposal; if (!p) return;
@@ -377,6 +390,6 @@ export function useSketchbook() {
   return {
     player, text, compiled, current, currentKey, menu, syncNote, banner, humState, humHistory, zipMidi, previewing,
     start, open, onInput, compileNow, newSketch, revert, remove, saveFile, bannerAction,
-    humAsk, humStop, humPreview, humUse, humDiscard, humForget, showProposal,
+    humAsk, humStop, humPreview, humUse, humDiscard, humForget, showProposal, listen, listening,
   };
 }

@@ -5,7 +5,8 @@ import PianoRoll from "./components/PianoRoll.vue";
 import HumBox from "./components/HumBox.vue";
 
 const sb = useSketchbook();
-const { player, text, compiled, current, currentKey, menu, syncNote, banner, humState, zipMidi, previewing } = sb;
+const { player, text, compiled, current, currentKey, menu, syncNote, banner, humState, zipMidi, previewing, listening } = sb;
+const comparing = computed(() => humState.proposal && !humState.proposal.answerOnly);
 const shownSong = player.song;   // what the player holds: the sketch, or a suggestion being previewed
 const editorEl = ref(null);
 const view = ref("csv");
@@ -100,7 +101,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
       <button v-if="player.canPlay" class="reset" title="Recreates the page’s audio connection, like reloading the page"
               @click="player.resetAudio()">No sound? Reset audio</button>
     </div>
-    <p v-if="previewing" class="previewing">Showing Claude’s suggestion. It isn’t in your sketch until you choose Use this.</p>
+    <div v-if="comparing" class="ab" role="group" aria-label="Which version to play">
+      <button :aria-pressed="listening === 'mine'" @click="sb.listen('mine')">Your version</button>
+      <button :aria-pressed="listening === 'claude'" @click="sb.listen('claude')">Claude’s suggestion</button>
+      <span>{{ previewing ? "Not in your sketch until you choose Use this." : "Switch while playing to compare the same moment." }}</span>
+    </div>
     <PianoRoll :song="shownSong" :position="player.state.position" :playing="player.state.playing"
                @seek="player.seek" @play-note="n => player.play(n.start)" />
 
@@ -130,7 +135,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
 .banner span { flex: 1; min-width: 12em; }
 .reset { margin-left: auto; border: 0; background: none; padding: 0; color: var(--muted); font-size: 0.85rem; cursor: pointer; }
 .reset:hover { color: var(--ink); text-decoration: underline; }
-.previewing { margin: 0 0 6px; font-size: 0.9rem; color: var(--accent); }
+.ab { display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin: 0 0 8px; }
+.ab button { border-radius: 0; font-size: 0.9rem; }
+.ab button:first-child { border-radius: 6px 0 0 6px; }
+.ab button:nth-child(2) { border-radius: 0 6px 6px 0; border-left: 0; }
+.ab button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ab span { margin-left: 10px; font-size: 0.85rem; color: var(--muted); }
 .save { margin-top: 10px; }
 .save .hint { margin: 0; }
 .warn { border: 0; background: none; padding: 1px 0; color: var(--warn); text-align: left; cursor: pointer; font: inherit; }

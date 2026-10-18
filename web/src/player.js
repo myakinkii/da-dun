@@ -154,7 +154,7 @@ export function createPlayer({ Tone = ToneModule, canPlay: forceCanPlay } = {}) 
     if (state.playing) play(t); else state.position = t;
   }
   function load(next) {
-    const was = state.playing, at = state.position;
+    const was = state.playing, at = was ? Tone.getTransport().seconds : state.position;   // exact, not the last frame's
     if (was) { halt(); state.playing = false; }
     song = next;
     songRef.value = next;

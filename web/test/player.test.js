@@ -127,3 +127,16 @@ test("song ref follows what's loaded (the piano roll shows it)", () => {
   p.load(b); assert.equal(p.song.value, b);
   assert.equal(p.state.duration, b.duration);
 });
+
+test("switching songs while playing carries on from the same moment (A/B)", async () => {
+  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
+  const mine = songOf("tempo 120\npiano: c4 d e f | g a b c |"), theirs = songOf("tempo 120\npiano: c4 d e f | g f e d |");
+  p.load(mine);
+  await p.play(0);
+  f.transport.seconds = 2.5;                     // in bar 2
+  p.load(theirs);
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(p.state.playing, true);
+  assert.deepEqual(f.log.filter(l => l[0] === "start").map(l => l[1]), [0, 2.5]);
+  assert.equal(p.song.value, theirs);
+});
