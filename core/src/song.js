@@ -8,14 +8,15 @@ import { splitRecord } from "./csvmidi.js";
  * @typedef {{start: number, end: number, startTick: number, endTick: number,
  *            bar: number, beat: number, track: number, ch: number,
  *            note: number, vel: number, prog: number}} SongNote
- * @typedef {{title: string, ppq: number, timeSig: [number, number], bpm: number,
+ * @typedef {{title: string, key: {sf: number, minor: boolean} | null, ppq: number,
+ *            timeSig: [number, number], bpm: number,
  *            barTicks: number, duration: number, notes: SongNote[],
  *            tickToSec: (tick: number) => number}} Song
  */
 
 /** Parse midicsv CSV into a Song. Records it doesn't need are skipped. */
 export function csvToSong(csv) {
-  let ppq = 480, title = "", timeSig = null;
+  let ppq = 480, title = "", timeSig = null, key = null;
   const tempos = [], recs = [];
   let order = 0;
   for (const raw of csv.split(/\r?\n/)) {
@@ -28,6 +29,10 @@ export function csvToSong(csv) {
     if (type === "header") ppq = n(5) || 480;
     else if (type === "tempo") tempos.push([time, n(3)]);
     else if (type === "time_signature" && !timeSig) timeSig = [n(3), 2 ** n(4)];
+    else if (type === "key_signature" && !key) {
+      const mode = f[4] && typeof f[4] === "object" ? new TextDecoder().decode(new Uint8Array(f[4].bytes)) : String(f[4] || "");
+      key = { sf: n(3), minor: /minor/i.test(mode) };
+    }
     else if (type === "title_t" && !title && typeof f[3] === "object") title = new TextDecoder().decode(new Uint8Array(f[3].bytes));
     else if (type === "program_c") recs.push({ time, kind: 0, order: order++, track, ch: n(3), prog: n(4) });
     else if (type === "note_off_c" || (type === "note_on_c" && n(5) === 0)) recs.push({ time, kind: 1, order: order++, track, ch: n(3), note: n(4) });
@@ -78,5 +83,5 @@ export function csvToSong(csv) {
     duration = Math.max(duration, n.end);
   }
   notes.sort((a, b) => a.start - b.start || a.note - b.note);
-  return { title, ppq, timeSig, bpm: 60e6 / map[0][2], barTicks, duration, notes, tickToSec };
+  return { title, key, ppq, timeSig, bpm: 60e6 / map[0][2], barTicks, duration, notes, tickToSec };
 }

@@ -26,6 +26,9 @@ Rules for your answer:
 - every bar must add up to the time signature; use R or rests to fill
 - prefer continuing existing parts; to add bars to a part, extend its line
   or add another line with the same part name (it continues the part)
+- when the request involves chords or a progression and the sketch has no key
+  line, add one (like "key A" or "key F# minor"): the editor uses it to number
+  the chords. Write chords as [c e g] in their own part, one chord per bar or beat
 - new instruments go on their own line; drums use the step-grid syntax
 - reply with ONLY a JSON object, no other text:
   {"notation": "<the complete updated sketch>", "explanation": "<one to three plain sentences: what you wrote and the musical choices you made, without jargon>"}`;

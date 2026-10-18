@@ -1,6 +1,7 @@
 title Our piece
 tempo 100
 time 4/4
+key A
 
 # Written for two hands, like a piano score: the right hand has the melody,
 # the left hand answers in the low register, and chords and bass fill in.

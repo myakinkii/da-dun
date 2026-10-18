@@ -49,7 +49,8 @@ from disk and is also what gets published as the claude.ai artifact.
 In the editor, press **Ctrl+Enter** (or **Cmd+Enter**) to play from the start
 and **Space** to play and stop. Warnings show up as you type; click one to jump
 to its line. In the piano roll, click a note to play from that note, or click
-anywhere to move the playhead. Edits and new sketches are saved in your
+anywhere to move the playhead. Chords written like `[c# e a]1` get a name above
+the roll (`A/C#`), and with a `key A` line also a Roman numeral (`I6`). Edits and new sketches are saved in your
 browser's local storage.
 
 ### Command line
@@ -170,6 +171,7 @@ the old "nearest note" octave rule convert with `node core/src/cli.js migrate so
 core/src/notate.js     notation -> CSV
 core/src/csvmidi.js    CSV -> MIDI bytes (subset of fourmilab csvmidi)
 core/src/song.js       CSV -> timed notes, for players and piano rolls
+core/src/analyze.js    chord names and Roman numerals from a song
 core/src/hum.js        the hum box: prompt, answer checking, repair round (any LLM)
 core/src/zip.js        tiny ZIP writer (for hosts that won't download .mid)
 core/src/gm.js         General MIDI instrument and drum names, short aliases

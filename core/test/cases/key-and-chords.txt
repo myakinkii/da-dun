@@ -1,0 +1,9 @@
+title Key and chords
+tempo 90
+time 4/4
+key A
+
+# A major: I vi IV V, then a borrowed bVI, a seventh and home
+piano (chords): [a, c#' e']1 | [f#, a, c#']1 | [d f# a]1 | [e g# b]1 |
+piano (chords): [f a c']1 | [e g# b d']1 | [c# e a]1 |
+bass o2: a,1 | f#,1 | d,1 | e,1 | f,1 | e,1 | a,1 |

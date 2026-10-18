@@ -1,8 +1,9 @@
 <script setup>
 // Piano roll drawn from our own Song data. Click a note to play from it,
-// click anywhere else to move the playhead there.
+// click anywhere else to move the playhead there. A strip above the notes
+// names the chords (and numbers them, when the sketch has a key line).
 import { computed } from "vue";
-import { GM_DRUMS, GM_DRUM_FIRST } from "@da-dun/core";
+import { GM_DRUMS, GM_DRUM_FIRST, analyzeChords, keyName } from "@da-dun/core";
 
 const props = defineProps({ song: Object, position: Number, playing: Boolean });
 const emit = defineEmits(["seek", "play-note"]);
@@ -37,9 +38,21 @@ const layout = computed(() => {
     lines.push({ x: x(sec), bar });
     if (bar) bars.push({ left: (sec / dur) * 100, n: b / s.timeSig[0] + 1 });
   }
+  const key = keyName(s.key);
+  // a chord reads as lasting until the next one (or the end of its bar), not just as long as its notes ring
+  const found = analyzeChords(s);
+  const chords = found.map((c, i) => {
+    const barEnd = (Math.floor(c.startTick / s.barTicks) + 1) * s.barTicks;
+    const end = s.tickToSec(Math.max(c.endTick, Math.min(i + 1 < found.length ? found[i + 1].startTick : barEnd, barEnd)));
+    return {
+      c, end, left: (c.start / dur) * 100, width: Math.max(0.6, ((end - c.start) / dur) * 100),
+      label: `${c.name}` + (c.roman ? `, ${c.roman} in ${key}` : "") + `, bar ${c.bar} beat ${c.beat}. ` +
+             (c.roman ? "Click to play from here." : "Add a key line (like \"key A\") to see the Roman numeral. Click to play from here."),
+    };
+  });
   const octaves = [];
   if (mel.length) for (let k = lo; k <= hi; k++) if (k % 12 === 0) octaves.push({ y: melH - (k - lo) * rowH, name: noteName(k) });
-  return { dur, rects, lines, bars, octaves, melH, divider: mel.length && drumKeys.length };
+  return { dur, rects, lines, bars, chords, key, octaves, melH, divider: mel.length && drumKeys.length };
 });
 const playheadX = computed(() => (layout.value ? (props.position / layout.value.dur) * W : 0));
 const isActive = n => props.playing && props.position >= n.start && props.position < n.end;
@@ -54,6 +67,15 @@ function onBackground(e) {
   <div class="roll">
     <div class="bars" aria-hidden="true">
       <span v-for="b in layout?.bars || []" :key="b.n" :style="{ left: b.left + '%' }">{{ b.n }}</span>
+      <em v-if="layout?.key" class="key">key {{ layout.key }}</em>
+    </div>
+    <div v-if="layout?.chords.length" class="chords">
+      <button v-for="k in layout.chords" :key="k.c.startTick" type="button" class="chord"
+              :class="{ active: playing && position >= k.c.start && position < k.end }"
+              :style="{ left: k.left + '%', width: k.width + '%' }" :title="k.label" :aria-label="k.label"
+              @click.stop="emit('seek', k.c.start)">
+        <b>{{ k.c.name }}</b><span v-if="k.c.roman">{{ k.c.roman }}</span>
+      </button>
     </div>
     <svg :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none" role="group"
          aria-label="Piano roll. Click a note to play from it, or click anywhere to move the playhead." @click="onBackground">
@@ -79,6 +101,16 @@ function onBackground(e) {
 .roll { position: relative; background: var(--roll); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .bars { position: relative; height: 18px; border-bottom: 1px solid var(--grid); font-size: 0.72rem; color: var(--muted); }
 .bars span { position: absolute; top: 1px; transform: translateX(3px); }
+.bars .key { position: absolute; right: 0; top: 1px; padding: 0 6px; font-style: normal; background: var(--roll); }
+.chords { position: relative; height: 38px; border-bottom: 1px solid var(--grid); }
+.chord { position: absolute; top: 3px; bottom: 3px; box-sizing: border-box; min-width: 0; overflow: hidden; padding: 0 4px;
+         display: flex; flex-direction: column; justify-content: center; align-items: flex-start; line-height: 1.15;
+         text-align: left; white-space: nowrap; border: 0; border-left: 2px solid var(--accent); border-radius: 3px;
+         background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.chord:hover { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.chord.active { background: color-mix(in srgb, var(--playhead) 30%, transparent); border-left-color: var(--playhead); }
+.chord b { font-size: 0.8rem; }
+.chord span { font-size: 0.7rem; color: var(--muted); }
 svg { display: block; width: 100%; height: 260px; cursor: crosshair; }
 .note { cursor: pointer; }
 .note:hover { stroke: var(--ink); stroke-width: 1px; vector-effect: non-scaling-stroke; }

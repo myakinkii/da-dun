@@ -2,7 +2,7 @@
 #   notate.pl -- turn a quick text music sketch into midicsv CSV
 #   Usage: perl notate.pl song.txt | csvmidi > song.mid
 #
-#   Header lines:   title Some Name     tempo 120     time 4/4
+#   Header lines:   title Some Name     tempo 120     time 4/4     key A  (or: key F# minor)
 #   Melody parts:   piano: r8 g' g g | >eb2 | [c e g]4 ...
 #     notes   a-g, then # or b (sharp/flat), then ' (octave up) or , (down)
 #             Notes are in the line's octave: 4 (from middle C up to B) unless
@@ -54,6 +54,11 @@ my %STEP = (c => 0, d => 1, e => 2, f => 3, g => 4, a => 5, b => 6);
 my @SEMI = (0, 2, 4, 5, 7, 9, 11);
 
 my ($title, $tempo, $tsn, $tsd) = ('Untitled', 120, 4, 4);
+my ($key_sf, $key_mode);
+my %KEY_SF = (
+    major => { C => 0, G => 1, D => 2, A => 3, E => 4, B => 5, 'F#' => 6, 'C#' => 7, F => -1, Bb => -2, Eb => -3, Ab => -4, Db => -5, Gb => -6, Cb => -7 },
+    minor => { A => 0, E => 1, B => 2, 'F#' => 3, 'C#' => 4, 'G#' => 5, 'D#' => 6, 'A#' => 7, D => -1, G => -2, C => -3, F => -4, Bb => -5, Eb => -6, Ab => -7 },
+);
 my (@parts, %part_by_key, $warnings);
 $warnings = 0;
 sub warn_at { my ($line, $msg) = @_; print STDERR "line $line: $msg\n"; $warnings++; }
@@ -79,6 +84,12 @@ while (my $l = <>) {
     next if $l eq '';
     if    ($l =~ /^title\s+(.+)$/i)         { $title = $1; }
     elsif ($l =~ /^tempo\s+(\d+(?:\.\d+)?)$/i) { $tempo = $1; }
+    elsif ($l =~ /^key\s+([A-Ga-g])([#b]?)\s*(major|minor|Major|Minor|maj|min|m)?$/) {
+        my ($tonic, $mode) = (uc($1) . $2, ($3 // '') =~ /^(minor|Minor|min|m)$/ ? 'minor' : 'major');
+        die "line $ln: \"$l\" isn't a usable key (it would need more than 7 sharps or flats); try its flat or sharp twin\n"
+            unless exists $KEY_SF{$mode}{$tonic};
+        ($key_sf, $key_mode) = ($KEY_SF{$mode}{$tonic}, $mode);
+    }
     elsif ($l =~ /^time\s+(\d+)\s*\/\s*(\d+)$/i) { ($tsn, $tsd) = ($1, $2); }
     elsif ($l =~ /^([A-Za-z][\w\s\-\+]*?)\s*(\(([^)]*)\))?\s*(?:o(\d))?\s*:\s*(.*)$/) {
         my ($name, $label, $loct, $body) = ($1, $3, $4, $5);
@@ -236,6 +247,7 @@ my $den_pow = int(log($tsd) / log(2) + 0.5);
 print "0, 0, Header, 1, ", scalar(@tracks) + 1, ", $PPQ\n";
 print "1, 0, Start_track\n1, 0, Title_t, \"$qt\"\n";
 print "1, 0, Time_signature, $tsn, $den_pow, 24, 8\n";
+print "1, 0, Key_signature, $key_sf, \"$key_mode\"\n" if defined $key_sf;
 print "1, 0, Tempo, ", int(60_000_000 / $tempo + 0.5), "\n1, $end, End_track\n";
 my $tn = 2;
 for my $tr (@tracks) {

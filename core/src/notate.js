@@ -165,11 +165,24 @@ function parseDrum(p, song, warn) {
   return { ev, len: t };
 }
 
+// Key signatures (sharps positive, flats negative) as MIDI wants them: -7..7.
+const KEY_SF = {
+  major: { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, "F#": 6, "C#": 7, F: -1, Bb: -2, Eb: -3, Ab: -4, Db: -5, Gb: -6, Cb: -7 },
+  minor: { A: 0, E: 1, B: 2, "F#": 3, "C#": 4, "G#": 5, "D#": 6, "A#": 7, D: -1, G: -2, C: -3, F: -4, Bb: -5, Eb: -6, Ab: -7 },
+};
+
+/** "A", "F# minor", "bb", "Am" -> {name: "F# minor", sf: 3, mode: "minor"}, or null if it isn't a usable key. */
+function parseKey(m) {
+  const tonic = m[1].toUpperCase() + m[2], minor = /^(minor|Minor|min|m)$/.test(m[3] || "");
+  const mode = minor ? "minor" : "major", sf = KEY_SF[mode][tonic];
+  return sf === undefined ? null : { name: `${tonic} ${mode}`, sf, mode };
+}
+
 /**
  * Convert notation text to midicsv CSV.
  * @param {string} text
  * @returns {{csv: string, warnings: {line: number|null, message: string}[],
- *            title: string, tempo: number, ticks: number, barTicks: number, notes: number,
+ *            title: string, key: string|null, tempo: number, ticks: number, barTicks: number, notes: number,
  *            sources: Object<string, {line: number, col: number, len: number}>}}
  *   `sources` maps "track:tick:note" (as in the CSV) to where that note is written in `text`
  *   (1-based line, 0-based column), so a UI can jump from a note to its text.
@@ -178,7 +191,7 @@ function parseDrum(p, song, warn) {
 export function notate(text) {
   const warnings = [];
   const warn = (line, message) => warnings.push({ line, message });
-  let title = "Untitled", tempo = "120", tsn = "4", tsd = "4";
+  let title = "Untitled", tempo = "120", tsn = "4", tsd = "4", key = null;
   const parts = [], byKey = new Map();
 
   text.split(/\r?\n/).forEach((raw, i) => {
@@ -189,6 +202,10 @@ export function notate(text) {
     let m;
     if ((m = l.match(/^title\s+(.+)$/i))) title = m[1];
     else if ((m = l.match(/^tempo\s+(\d+(?:\.\d+)?)$/i))) tempo = m[1];
+    else if ((m = l.match(/^key\s+([A-Ga-g])([#b]?)\s*(major|minor|Major|Minor|maj|min|m)?$/))) {
+      key = parseKey(m);
+      if (!key) throw new NotationError(ln, `"${l}" isn't a usable key (it would need more than 7 sharps or flats); try its flat or sharp twin`);
+    }
     else if ((m = l.match(/^time\s+(\d+)\s*\/\s*(\d+)$/i))) { tsn = m[1]; tsd = m[2]; }
     else if ((m = l.match(/^([A-Za-z][\w\s\-+]*?)\s*(\(([^)]*)\))?\s*(?:o(\d))?\s*:\s*(.*)$/))) {
       const [, name, , label, loct, body] = m;
@@ -231,6 +248,7 @@ export function notate(text) {
     "1, 0, Start_track",
     `1, 0, Title_t, "${q(title)}"`,
     `1, 0, Time_signature, ${tsn}, ${Math.trunc(Math.log(Number(tsd)) / Math.log(2) + 0.5)}, 24, 8`,
+    ...(key ? [`1, 0, Key_signature, ${key.sf}, "${key.mode}"`] : []),
     `1, 0, Tempo, ${Math.trunc(60000000 / Number(tempo) + 0.5)}`,
     `1, ${end}, End_track`,
   ];
@@ -250,6 +268,6 @@ export function notate(text) {
     tn++;
   }
   out.push("0, 0, End_of_file");
-  return { csv: out.join("\n") + "\n", warnings, title, tempo: Number(tempo), sources,
+  return { csv: out.join("\n") + "\n", warnings, title, key: key && key.name, tempo: Number(tempo), sources,
            ticks: end, barTicks: song.barTicks, notes };
 }

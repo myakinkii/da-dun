@@ -4,6 +4,9 @@ FILE LAYOUT
   title Song name         optional
   tempo 120               quarter notes per minute (default 120)
   time 4/4                time signature (default 4/4)
+  key A                   optional key: key A, key F# minor, key Bb, key Am.
+                          The editor names the chords and numbers them (I, vi,
+                          IV, V) when there is one. It doesn't change any note.
   # comment               a # at the start of a line or after a space
   instrument: notes ...   one part per line; repeat the name to continue it
   piano (left): ...       same instrument, separate part

@@ -2,6 +2,7 @@
 export { notate, NotationError, PPQ } from "./notate.js";
 export { csvToMidi } from "./csvmidi.js";
 export { csvToSong } from "./song.js";
+export { analyzeChords, keyName } from "./analyze.js";
 export { toFixedOctaves } from "./migrate.js";
 export { hum, humPrompt, parseHumReply, parseJsonReply, checkNotation } from "./hum.js";
 export { makeZip, crc32 } from "./zip.js";
