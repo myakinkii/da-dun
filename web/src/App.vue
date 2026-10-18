@@ -73,7 +73,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
         </optgroup>
       </select>
       <button @click="sb.newSketch()">New sketch</button>
-      <button v-if="current?.example" title="Undo all your edits to this example" @click="sb.revert()">Revert</button>
+      <button v-if="current?.example" title="Back to the original example (you can undo)" @click="sb.revert()">Revert</button>
       <button v-if="current?.sketch" @click="sb.remove()">Delete</button>
     </div>
 

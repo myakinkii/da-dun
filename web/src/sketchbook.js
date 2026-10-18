@@ -162,19 +162,38 @@ export function useSketchbook() {
     m.set(id, { type: "sketch", text: NEW_SKETCH, title: titleOf(NEW_SKETCH), updated: now(), by: "page", notation: NOTATION });
     setDocs(m); pushRemote(id); open(id);
   }
+  // Revert, Delete and Forget act at once and offer Undo: browser dialogs like
+  // confirm() are blocked inside claude.ai artifacts (they silently say no).
   function revert() {
     const c = current.value;
-    if (!c.example || text.value === c.original) return;
-    if (!confirm("Throw away your edits to this example?")) return;
+    if (!c.example) return;
+    if (text.value === c.original) { showBanner("This example has no edits to revert."); return; }
+    const before = text.value;
     setEditor(c.original); saveNow();
+    showBanner("Back to the original example.", [
+      { label: "Undo", fn: () => { if (current.value.key === c.key) { setEditor(before); saveNow(); } } },
+      { label: "OK" },
+    ]);
   }
   function remove() {
     const c = current.value;
-    if (!c.sketch || !confirm(`Delete “${titleOf(text.value)}”?`)) return;
+    if (!c.sketch) return;
     clearTimeout(saveTimer); saveTimer = 0;
+    const title = titleOf(text.value);
+    const doc = { ...(docs.value.get(c.docId) || { type: "sketch", by: "page", notation: NOTATION }),
+                  text: text.value, title, updated: now() };
+    const humDoc = docs.value.get("hum-" + c.docId);
     const m = new Map(docs.value); m.delete(c.docId); m.delete("hum-" + c.docId);
     setDocs(m); pushRemote(c.docId); pushRemote("hum-" + c.docId);
     open(entries.value[0].key);
+    showBanner(`Deleted “${title}”.`, [
+      { label: "Undo", fn: () => {
+        const m2 = new Map(docs.value); m2.set(c.docId, doc); if (humDoc) m2.set("hum-" + c.docId, humDoc);
+        setDocs(m2); pushRemote(c.docId); if (humDoc) pushRemote("hum-" + c.docId);
+        open(c.key);
+      } },
+      { label: "OK" },
+    ]);
   }
 
   // ---- banner ----
@@ -373,8 +392,13 @@ export function useSketchbook() {
     closeProposal();
   }
   function humForget() {
-    if (!confirm("Forget all of Claude’s earlier answers for this sketch?")) return;
+    const items = humItems(), sketch = current.value.docId;
+    if (!items.length) return;
     closeProposal(); saveHumItems([]);
+    showBanner("Forgot Claude’s earlier answers for this sketch.", [
+      { label: "Undo", fn: () => saveHumItems(items, sketch) },
+      { label: "OK" },
+    ]);
   }
 
   // ---- saving files ----
