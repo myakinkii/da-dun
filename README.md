@@ -1,6 +1,6 @@
 # da-dun
 
-LLM assisted music creation tool.
+LLM assisted music creation tool. 100% vibe-coded
 
 Hum it as "da-da-da-DUN", let an LLM turn it into a tiny text notation, then
 hear it in the browser and export MIDI.
