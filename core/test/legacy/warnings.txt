@@ -1,0 +1,3 @@
+title Things that warn
+piano: c4 d e f g | a b c d e8 | c7 d | eq | R R |
+kick: |x...x...|xyz.............|

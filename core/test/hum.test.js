@@ -5,11 +5,11 @@ import { readFileSync } from "node:fs";
 import { hum, humPrompt, parseHumReply, checkNotation } from "../src/hum.js";
 
 const guide = readFileSync(new URL("../../docs/notation.txt", import.meta.url), "utf8");
-const sketch = "title Test\ntempo 96\n\npiano: a'4 R | e R |\n";
+const sketch = "title Test\ntempo 96\n\npiano: a4 R | e R |\n";
 
 test("prompt carries rules, guide, sketch and request", () => {
   const p = humPrompt({ notation: sketch, request: "ta-ta-TAAM rising", guide });
-  for (const part of ["Reading da-duns", "NOTATION GUIDE", "piano: a'4 R | e R |", "ta-ta-TAAM rising", '"notation"'])
+  for (const part of ["Reading da-duns", "NOTATION GUIDE", "piano: a4 R | e R |", "ta-ta-TAAM rising", '"notation"'])
     assert.ok(p.includes(part), part);
 });
 
@@ -28,8 +28,8 @@ test("a clean answer is returned after one call", async () => {
 test("converter problems go back to the model once", async () => {
   const calls = [];
   const answers = [
-    { notation: "title Test\npiano: a'4 R | e R | c d e |", explanation: "first" },   // bar 3 too short
-    { notation: "title Test\npiano: a'4 R | e R | c d e f |", explanation: "fixed" },
+    { notation: "title Test\npiano: a4 R | e R | c d e |", explanation: "first" },   // bar 3 too short
+    { notation: "title Test\npiano: a4 R | e R | c d e f |", explanation: "fixed" },
   ];
   const r = await hum({ notation: sketch, request: "x", guide, ask: async p => { calls.push(p); return answers[calls.length - 1]; } });
   assert.equal(calls.length, 2);

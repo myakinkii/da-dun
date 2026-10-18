@@ -7,19 +7,26 @@ FILE LAYOUT
   # comment               a # at the start of a line or after a space
   instrument: notes ...   one part per line; repeat the name to continue it
   piano (left): ...       same instrument, separate part
+  piano (left) o3: ...    this line is in octave 3 (see OCTAVES)
 
 NOTES
   c d e f g a b           note names
   c#  eb  bb              # is sharp, b after a letter is flat
   r                       rest
   R                       rest until the end of the bar
-  g'  g,                  one octave up / down from where it would land
-  g''                     two octaves up (same for ,,)
 
-  Each note lands in the octave closest to the previous note
-  (at most 3 letter steps away). Parts start near middle C;
-  bass instruments start two octaves lower.
-  o3                      reset the reference octave (middle C is o4)
+OCTAVES
+  Every note is in its line's octave: octave 4 (middle C up to B)
+  unless the part line names another, like "piano (left) o3:".
+  Bass instruments default to octave 2.
+  g'  g,                  this note one octave up / down
+  g''  g,,                two octaves up / down
+  o5                      the rest of this line is in octave 5
+
+  Octaves count from C, as in pitch names: in octave 4, b is B4 but
+  c is C4, below it. Pick each line's octave where most of its notes
+  are, so few notes need marks:
+    piano (right) o5: c8t d e~ e2 f#,8t g#, b, |
 
 DURATIONS
   1 2 4 8 16 32           whole, half, quarter, eighth, 16th, 32nd
@@ -34,11 +41,16 @@ EXPRESSION
   >c                      accent (louder)
   c2~ c8                  tie: one note held for both lengths
   [c e g]2                chord; the next note follows its first note
+  >[c e g]2               accented chord
 
 BARS
   |                       bar line. Bars are checked against the time
                           signature; a short first bar is fine (pickup).
   a'4 R | e R |           one note per bar, then silence
+  @15                     this part continues from bar 15 (rests until then),
+                          handy for parts that come in late:
+                            bass: @15 a,1 | a1 |
+                          also works in drum lines:  kick: @9 |x...x...x...x...|
 
 DRUMS
   kick:  |x...x...x...x...|   one character per 16th note
@@ -60,8 +72,8 @@ EXAMPLE
   tempo 180
   time 2/4
 
-  strings: r8 g' g g | >eb2 | r8 f f f | >d2~ | d2
-  cello:   r8 g g g | >eb2 | r8 f f f | >d2~ | d2
+  strings:  r8 g g g | >eb2 | r8 f f f | >d2~ | d2
+  cello o3: r8 g g g | >eb2 | r8 f f f | >d2~ | d2
 
   drums, one bar of a basic rock groove:
   kick:  |x.......x.x.....|

@@ -1,2 +1,2 @@
 title Scale and chords
-piano: c4 d e f | g a b c | [c e g]2 [d f a]2 | [e g' c]1 |
+piano o5: c,4 d, e, f, | g, a, b, c | [c e g]2 [d f a]2 | [e g' c'']1 |

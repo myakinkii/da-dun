@@ -6,4 +6,4 @@ time 4/4
 kick:  |x.......x.x.....|x.......x.x...x.|
 snare: |....x.......x...|....x.......x.X.|
 hat:   |x.x.x.x.x.x.x.x.|x.x.x.x.x.x.x.x.|
-bass:  e8 e r e g a r e | e e r e d4 b8 b |
+bass:  e8 e r e g a r e | e e r e d4 b,8 b, |

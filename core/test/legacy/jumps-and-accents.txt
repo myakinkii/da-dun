@@ -1,0 +1,9 @@
+title Jumps and accented chords
+tempo 120
+time 4/4
+# @N continues a part from bar N; >[...] accents a chord; bar lines may touch notes
+piano: c4 d e f|g1|
+piano: @4 >[c e g]2 [d f a]2 | >[e g c]1~ | [e g c]1 |
+bass: @3 c2 g | c1 |
+kick: @2 |x...x...x...x...| @4 |X...x...X...x...|
+snare: |....x.......x...| @3 |....x.......x...|

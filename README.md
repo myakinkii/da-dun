@@ -150,7 +150,9 @@ See [docs/notation.txt](docs/notation.txt) (also shown in the page's
 "Notation guide" tab). In short: note names `c d e f g a b` with `#`/`b`,
 durations `1 2 4 8 16 32` that carry over to the next notes, `8t` triplets,
 `.` dots, `r` rest, `R` rest to the end of the bar, `~` ties, `>` accents,
-`[c e g]` chords, `'` and `,` to move an octave, and step grids for drums:
+`[c e g]` chords (`>[c e g]` accented), fixed octaves per line like a clef
+(`piano (left) o3:`, with `'` and `,` for single notes), `@15` to continue a part from
+bar 15, and step grids for drums:
 
 ```
 kick:  |x.......x.x.....|
@@ -158,8 +160,9 @@ snare: |....x.......x...|
 hat:   |x.x.x.x.x.x.x.x.|
 ```
 
-The octave rule (each note lands closest to the previous one) and several symbols
-are borrowed from [LilyPond](https://lilypond.org/).
+Several symbols are borrowed from [LilyPond](https://lilypond.org/). Songs written for
+the old "nearest note" octave rule convert with `node core/src/cli.js migrate song.txt --write`
+(same pitches); the editor converts your saved sketches by itself.
 
 ## Layout
 

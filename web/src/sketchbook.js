@@ -4,12 +4,13 @@
 //   sk-<id>          {type: "sketch", text, title, updated, by}
 //   draft-<example>  {type: "draft", example, text, title, updated, by}
 //   hum-<sketchDoc>  {type: "hum", sketch, items: [{id, request, explanation, notation, status, ...}]}
+// Every doc carries notation: 2 (fixed octaves); older docs are converted on load.
 // Docs always live in localStorage. Inside a claude.ai artifact they're also
 // synced to the artifact database, in the viewer's private collection
 // data/users/<id>, where Claude can read and write them ("by": "claude").
 
 import { ref, shallowRef, computed, reactive } from "vue";
-import { notate, csvToMidi, csvToSong, hum, makeZip } from "@da-dun/core";
+import { notate, csvToMidi, csvToSong, hum, makeZip, toFixedOctaves } from "@da-dun/core";
 import GUIDE from "../../docs/notation.txt?raw";
 import { capability } from "./claude.js";
 import { createPlayer } from "./player.js";
@@ -39,6 +40,17 @@ const validDoc = d => d && typeof d === "object" && (
    (d.type === "sketch" || (d.type === "draft" && EXAMPLES.some(e => e.id === d.example)))) ||
   (d.type === "hum" && typeof d.sketch === "string" && Array.isArray(d.items) && d.items.length <= 50 && d.items.every(validItem)));
 
+// ---- notation format ----
+// Docs saved before fixed octaves (no "notation" field) used the "nearest note"
+// rule; convert them once, keeping every pitch, and mark them as version 2.
+const NOTATION = 2;
+function upgradeDoc(d) {
+  if (d.notation >= NOTATION) return [d, false];
+  if (d.type === "hum") return [{ ...d, notation: NOTATION, items: d.items.map(i => ({ ...i, notation: toFixedOctaves(i.notation) })) }, true];
+  const text = toFixedOctaves(d.text);
+  return [{ ...d, notation: NOTATION, text, title: titleOf(text) }, true];
+}
+
 // ---- localStorage ----
 const local = {
   get(k) { try { return JSON.parse(localStorage.getItem("sketchbook:" + k)); } catch (e) { return null; } },
@@ -56,14 +68,21 @@ function loadLocalDocs() {
     }
     local.set("docs", d);
   }
-  return new Map(Object.entries(d).filter(([, v]) => validDoc(v)));
+  let changed = false;
+  const m = new Map(Object.entries(d).filter(([, v]) => validDoc(v)).map(([id, v]) => {
+    const [u, ch] = upgradeDoc(v); changed ||= ch; return [id, u];
+  }));
+  if (changed) local.set("docs", Object.fromEntries(m));
+  return m;
 }
 
-function compileText(text) {
+// withSources: give each note .src = where it's written in `text` (for the editor's own text)
+function compileText(text, withSources = false) {
   try {
     const r = notate(text);
     const m = csvToMidi(r.csv);
     const song = csvToSong(r.csv);
+    if (withSources) for (const n of song.notes) n.src = r.sources[`${n.track}:${n.startTick}:${n.note}`];
     return { ok: true, csv: r.csv, bytes: m.bytes, song, warnings: [...r.warnings, ...m.warnings],
              bars: Math.ceil(r.ticks / r.barTicks), notes: r.notes };
   } catch (e) {
@@ -108,7 +127,7 @@ export function useSketchbook() {
   }
   function compileNow() {
     clearTimeout(compileTimer); compileTimer = 0;
-    const c = compileText(text.value);
+    const c = compileText(text.value, true);
     compiled.value = c;
     if (c.ok && listening.value === "mine") player.load(c.song);
   }
@@ -133,14 +152,14 @@ export function useSketchbook() {
     const m = new Map(docs.value);
     if (c.example && text.value === c.original) m.delete(c.docId);
     else m.set(c.docId, { type: c.example ? "draft" : "sketch", ...(c.example ? { example: c.example } : {}),
-                          text: text.value, title: titleOf(text.value), updated: now(), by: "page" });
+                          text: text.value, title: titleOf(text.value), updated: now(), by: "page", notation: NOTATION });
     synced = text.value;
     setDocs(m); pushRemote(c.docId);
   }
   function newSketch() {
     const id = "sk-" + Date.now().toString(36);
     const m = new Map(docs.value);
-    m.set(id, { type: "sketch", text: NEW_SKETCH, title: titleOf(NEW_SKETCH), updated: now(), by: "page" });
+    m.set(id, { type: "sketch", text: NEW_SKETCH, title: titleOf(NEW_SKETCH), updated: now(), by: "page", notation: NOTATION });
     setDocs(m); pushRemote(id); open(id);
   }
   function revert() {
@@ -200,9 +219,12 @@ export function useSketchbook() {
     const next = new Map();
     const cid = current.value && current.value.docId;
     let cur = null;
+    const upgraded = [];
     for (const d of snap.docs) {
-      const v = d.data();
+      let v = d.data();
       if (!validDoc(v)) continue;
+      const [u, ch] = upgradeDoc(v);
+      if (ch) { v = u; upgraded.push(d.id); }
       next.set(d.id, v);
       if (d.id === cid) cur = { v, pending: d.metadata.hasPendingWrites };
     }
@@ -213,6 +235,7 @@ export function useSketchbook() {
     const c = current.value;
     setDocs(next);
     upload.forEach(pushRemote);
+    upgraded.filter(id => !upload.includes(id)).forEach(pushRemote);   // write converted docs back
 
     if (!c || busy || (cur && cur.pending)) return;
     const incoming = cur ? cur.v.text : (c.example ? c.original : null);
@@ -240,7 +263,7 @@ export function useSketchbook() {
   const humHistory = computed(() => (current.value ? humItems().slice().reverse() : []));
   function saveHumItems(items, sketch = current.value.docId) {
     const id = "hum-" + sketch, m = new Map(docs.value);
-    if (items.length) m.set(id, { type: "hum", sketch, items: items.slice(-20), updated: now() });
+    if (items.length) m.set(id, { type: "hum", sketch, items: items.slice(-20), updated: now(), notation: NOTATION });
     else m.delete(id);
     setDocs(m); pushRemote(id);
   }
@@ -273,8 +296,8 @@ export function useSketchbook() {
   // (npm start, or npm run dev with the server running): POST /api/hum.
   const serverHumP = capability("sample").then(s => {
     if (s || typeof location === "undefined" || !/^https?:$/.test(location.protocol)) return null;
-    return fetch("/api/health").then(r => (r.ok ? r.json() : null)).then(j => (j && j.hum ? j : null)).catch(() => null);
-  });
+    return fetch("/api/health").then(r => (r.ok ? r.json() : null)).then(j => (j && j.hum ? j : null));
+  }).catch(() => null);
   async function serverHum(body, signal) {
     let res;
     try {

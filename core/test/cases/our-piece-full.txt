@@ -1,0 +1,30 @@
+title Our piece
+tempo 100
+time 4/4
+
+# Written for two hands, like a piano score: the right hand has the melody,
+# the left hand answers in the low register, and chords and bass fill in.
+
+# Bars 1-8: the A-to-E call and the triplet answer, first bare, then with chords
+piano (right): a4 R | e R | r4 e8t f# a b4 b8t c#' b | a8t f# e~ e2 r4 |
+piano (right): a4 R | e R | r4 e8t f# a b4 b8t c#' b | a8t f# e~ e2 e8t f# a |
+
+# Bars 9-14: call (right hand) and answer (left hand), then the return,
+# then the call and answer again a step higher with the bass rising
+piano (right): >b4 r2 e8t f# a | >e'4 r2. | r4 e8t f# a b4 b8t c#' b |
+piano (right): c#'8t d' e'~ e'2 f#8t g# b | >c#'4 r2 b8t c#' e' | >f#'4 r2. |
+piano (left) o3: @9 r4 a8t f# d >d,4 r4 | r4 g#8t e c# >c#,4 r4 | R | R |
+piano (left) o3: r4 b8t g# e >e,4 r4 | r4 c#'8t a f# >f#,4 r4 |
+
+# Bars 15-16: the triplet motif magnified, in big accented chords, then home on A
+piano (right) o5: >e4t f# a >b c#' b | >a2. r4 |
+piano (bass) o2: @15 >a4t d f >e f# e | >a,1 |
+
+# Chords for the second phrase: F# minor and C# minor under the call, then D and E, then home to A
+# In A major (bars 5-8):  F#m | C#m | D  E | A   =   vi | iii | IV  V | I
+piano (chords): @5 [f#, a, c#]2. r4 | [g#, c# e]2. r4 | [d f# a]4 r4 [e g# b]4 r4 | [a c#' e']2. r4 |
+# Bars 9-12: chords under the calls only, then the return ends on E to hand over to the conclusion
+# In A major (bars 9-12):  Bm | C#m | F#m  Bm | D  E   =   ii | iii | vi  ii | IV  V
+piano (chords) o3: [f# b d']4 r2. | [g# c#' e']4 r2. | [f# a c#']2 [f# b d']2 | [f# a d']4 [e g# b]2. |
+# In A major (bars 13-16):  C#m | F#m | A  D  F   E  F#m  E | A   =   iii | vi | I IV bVI  V vi V | I
+piano (chords): [g#, c# e]4 r2. | [f#, a, c#]4 r2. | >[c# e a]4t [d f# a] [c f a] >[b, e g#] [c# f# a] [b, e g#] | [c# e a]1 |

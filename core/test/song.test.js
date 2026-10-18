@@ -7,7 +7,7 @@ import { notate, csvToSong } from "../src/index.js";
 const song = text => csvToSong(notate(text).csv);
 
 test("timing at 96 BPM, bars and beats", () => {
-  const s = song("title Our piece\ntempo 96\ntime 4/4\n\npiano: a'4 R | e R | r4 e8t f# g# a4 b8t c# b | a8 g# a2. |");
+  const s = song("title Our piece\ntempo 96\ntime 4/4\n\npiano: a4 R | e R | r4 e8t f# g# a4 b8t c#' b | a8 g# a2. |");
   assert.equal(s.title, "Our piece");
   assert.equal(s.notes.length, 12);
   assert.equal(Math.round(s.bpm), 96);

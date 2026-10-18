@@ -1,0 +1,6 @@
+title Our piece
+tempo 96
+time 4/4
+
+# The A-to-E call, then the triplet answer that climbs back home
+piano: a'4 R | e R | r4 e8t f# a b4 b8t c# b | a8t g# e~ e2 r4 |

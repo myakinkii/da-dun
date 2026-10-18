@@ -30,6 +30,22 @@ function gotoLine(n) {
   el.scrollTop = Math.max(0, (n - 3) * (parseFloat(getComputedStyle(el).lineHeight) || 20));
 }
 function playFromStart() { sb.compileNow(); player.play(0); }
+// Clicking a note in the piano roll plays from it and, for your own sketch,
+// puts the editor's cursor on the note's text.
+function selectSource(src) {
+  const el = editorEl.value, lines = el.value.split("\n");
+  if (!src || src.line > lines.length) return;
+  const start = lines.slice(0, src.line - 1).reduce((a, l) => a + l.length + 1, 0) + src.col;
+  el.focus({ preventScroll: true });
+  el.setSelectionRange(start, start + src.len);
+  const lh = parseFloat(getComputedStyle(el).lineHeight) || 20;
+  const top = (src.line - 1) * lh;
+  if (top < el.scrollTop || top > el.scrollTop + el.clientHeight - lh) el.scrollTop = Math.max(0, top - 2 * lh);
+}
+function onNote(n) {
+  player.play(n.start);
+  if (!previewing.value) selectSource(n.src);
+}
 function onEditorKey(e) {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); playFromStart(); }
   else if (e.key === "Tab" && !e.shiftKey) {
@@ -107,7 +123,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
       <span>{{ previewing ? "Not in your sketch until you choose Use this." : "Switch while playing to compare the same moment." }}</span>
     </div>
     <PianoRoll :song="shownSong" :position="player.state.position" :playing="player.state.playing"
-               @seek="player.seek" @play-note="n => player.play(n.start)" />
+               @seek="player.seek" @play-note="onNote" />
 
     <div class="tabs" role="tablist">
       <button role="tab" :aria-selected="view === 'csv'" @click="view = 'csv'">CSV</button>

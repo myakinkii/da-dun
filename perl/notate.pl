@@ -5,13 +5,17 @@
 #   Header lines:   title Some Name     tempo 120     time 4/4
 #   Melody parts:   piano: r8 g' g g | >eb2 | [c e g]4 ...
 #     notes   a-g, then # or b (sharp/flat), then ' (octave up) or , (down)
-#             Each note goes to the closest octave to the previous note.
-#     o3      set the reference octave (middle C is in octave 4)
+#             Notes are in the line's octave: 4 (from middle C up to B) unless
+#             the part line says otherwise, e.g. "piano (left) o3:"; bass
+#             instruments default to octave 2.
+#     o5      switch the octave for the rest of the line
 #     1 2 4 8 16 32   durations (whole..32nd), "." dotted; durations stick
 #     8t 4t 16t     triplets (three in the time of two)
 #     r       rest       R  rest to end of bar
 #     ~ tie into next note      > accent (louder)
-#     [c e g] chord      | bar line (checked against the time signature)
+#     [c e g] chord, >[c e g] accented chord
+#     |       bar line (checked against the time signature)
+#     @15     continue from bar 15 (works in drum lines too)
 #   Drum parts (one line per sound, each character is a 16th note):
 #     kick:  |x...x...x...x...|      x hit, X accented hit, . or - silence
 #   Same part name twice continues the part. "piano (left):" makes a
@@ -76,8 +80,8 @@ while (my $l = <>) {
     if    ($l =~ /^title\s+(.+)$/i)         { $title = $1; }
     elsif ($l =~ /^tempo\s+(\d+(?:\.\d+)?)$/i) { $tempo = $1; }
     elsif ($l =~ /^time\s+(\d+)\s*\/\s*(\d+)$/i) { ($tsn, $tsd) = ($1, $2); }
-    elsif ($l =~ /^([A-Za-z][\w\s\-\+]*?)\s*(\(([^)]*)\))?\s*:\s*(.*)$/) {
-        my ($name, $label, $body) = ($1, $3, $4);
+    elsif ($l =~ /^([A-Za-z][\w\s\-\+]*?)\s*(\(([^)]*)\))?\s*(?:o(\d))?\s*:\s*(.*)$/) {
+        my ($name, $label, $loct, $body) = ($1, $3, $4, $5);
         my $key = lc($name) . (defined $label ? " ($label)" : '');
         my $p = $part_by_key{$key};
         unless ($p) {
@@ -86,7 +90,7 @@ while (my $l = <>) {
                    num => $num, chunks => [] };
             $part_by_key{$key} = $p; push @parts, $p;
         }
-        push @{$p->{chunks}}, [$ln, $body];
+        push @{$p->{chunks}}, [$ln, $body, $loct];
     }
     else { die "line $ln: can't understand \"$l\"\n"; }
 }
@@ -99,13 +103,13 @@ sub parse_melody {
     my ($p) = @_;
     my @ev;                       # [tick, on/off, note, vel]
     my $t = 0; my $dur = $PPQ;    # sticky duration
-    my $ref = (($p->{num} >= 32 && $p->{num} <= 39) ? 2 : 4) * 7;   # diatonic ref: c2 for bass, else c4
+    my $default_oct = ($p->{num} >= 32 && $p->{num} <= 39) ? 2 : 4;   # bass instruments: octave 2
     my @tied;                     # notes currently held by a tie
     my $bar_start = 0; my $bar_no = 1;
     for my $c (@{$p->{chunks}}) {
-        my ($line, $body) = @$c;
-        $body =~ s/\|/ | /g;
-        for my $tok ($body =~ /\[[^\]]*\]\S*|\S+/g) {
+        my ($line, $body, $loct) = @$c;
+        my $oct = $loct // $default_oct;      # each line starts in its own octave
+        for my $tok ($body =~ /(>?\[[^\]]*\][^\s|]*|[^\s|]+|\|)/g) {
             if ($tok eq '|') {
                 my $len = $t - $bar_start;
                 if ($len != $bar_ticks && !($bar_no == 1 && $len < $bar_ticks && $len > 0)) {
@@ -114,7 +118,13 @@ sub parse_melody {
                 }
                 $bar_start = $t; $bar_no++; next;
             }
-            if ($tok =~ /^o(\d)$/) { $ref = $1 * 7; next; }
+            if ($tok =~ /^o(\d)$/) { $oct = $1; next; }
+            if ($tok =~ /^@(\d+)$/) {         # continue from bar N (rest until then)
+                my $target = ($1 - 1) * $bar_ticks;
+                if ($1 < 1 || $target < $t) { warn_at($line, "$p->{name}: \@$1, but this part is already past the start of bar $1"); next; }
+                push @ev, [$t, 0, $_, 0] for @tied; @tied = ();
+                $t = $target; $bar_start = $t; $bar_no = $1; next;
+            }
             if ($tok eq 'R') {            # rest until the end of the bar
                 my $left = $bar_ticks - ($t - $bar_start);
                 if ($left <= 0) { warn_at($line, "$p->{name}: R in bar $bar_no, but that bar is already full"); next; }
@@ -138,19 +148,14 @@ sub parse_melody {
             my @pitches;
             if ($what ne 'r') {
                 my @names = $what =~ /^\[/ ? (substr($what, 1, -1) =~ /\S+/g) : ($what);
-                my $r = $ref; my $first;
                 for my $n (@names) {
-                    my ($letter, $accd, $oct) = $n =~ /^([a-gA-G])(#|b)?([',]*)$/
+                    my ($letter, $accd, $marks) = $n =~ /^([a-gA-G])(#|b)?([',]*)$/
                         or (warn_at($line, "$p->{name}: bad note \"$n\" in chord"), next);
-                    my $s = $STEP{lc $letter};
-                    my $pos = $r - ($r % 7) + $s;                    # same octave as reference
-                    $pos -= 7 if $pos - $r > 3; $pos += 7 if $r - $pos > 3;
-                    $pos += 7 * (() = $oct =~ /'/g); $pos -= 7 * (() = $oct =~ /,/g);
-                    my $midi = (int($pos / 7) + 1) * 12 + $SEMI[$pos % 7]
+                    my $o = $oct + (() = $marks =~ /'/g) - (() = $marks =~ /,/g);
+                    my $midi = ($o + 1) * 12 + $SEMI[$STEP{lc $letter}]
                              + (($accd // '') eq '#' ? 1 : ($accd // '') eq 'b' ? -1 : 0);
-                    push @pitches, $midi; $r = $pos; $first //= $pos;
+                    push @pitches, $midi;
                 }
-                $ref = $first if defined $first;
             }
             # resolve ties from previous token
             my %cont;
@@ -182,8 +187,14 @@ sub parse_drum {
     for my $c (@{$p->{chunks}}) {
         my ($line, $body) = @$c;
         $body =~ s/\s+//g;
-        my $first = 1;
-        for my $bar (split /\|/, $body) {
+        for my $piece (split /(@\d+)/, $body) {
+          if ($piece =~ /^@(\d+)$/) {          # continue from bar N
+              my $target = ($1 - 1) * $bar_ticks;
+              if ($1 < 1 || $target < $t) { warn_at($line, "$p->{name}: \@$1, but this part is already past the start of bar $1"); }
+              else { $t = $target; }
+              next;
+          }
+          for my $bar (split /\|/, $piece) {
             next if $bar eq '';
             warn_at($line, "$p->{name}: bar \"$bar\" has " . length($bar) . " steps, expected $bar_steps")
                 if length($bar) != $bar_steps;
@@ -196,6 +207,7 @@ sub parse_drum {
                 }
                 $t += $step;
             }
+          }
         }
     }
     return (\@ev, $t);

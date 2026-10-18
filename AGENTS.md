@@ -40,6 +40,11 @@ the project is; this file is about how to work on it.
   version, and the parity tests check the JavaScript against it, byte for byte.
 - Also update `docs/notation.txt` (the guide shown in the editor and sent to
   the model by the hum box) whenever the notation changes.
+- If a change makes existing text mean something different (as fixed octaves
+  did), write a converter like `core/src/migrate.js`, keep the old-format test
+  inputs in `core/test/legacy/` to prove it keeps every note, and bump
+  `NOTATION` in `web/src/sketchbook.js` so the editor converts saved sketches
+  once.
 
 ## Tests
 
@@ -66,9 +71,17 @@ one; their sketches live in its database.
 Inside the artifact, sketches are synced to the artifact database, in the
 user's private collection `data/users/<id>/` (address it as `data/users/me`):
 
-- `sk-<id>`: `{type: "sketch", text, title, updated, by}`
+- `sk-<id>`: `{type: "sketch", text, title, updated, by, notation: 2}`
 - `draft-<example>`: an edited example, `{type: "draft", example, text, ...}`
-- `hum-<doc>`: hum box history for a sketch, `{type: "hum", sketch, items}`
+- `hum-<doc>`: hum box history for a sketch, `{type: "hum", sketch, items, notation: 2}`
+
+`notation: 2` means fixed octaves. Always write it: a doc without it is taken
+to be in the old "nearest note" format and gets converted when the page loads.
+
+Octaves are fixed per line (`piano (left) o3:`, default 4, bass instruments 2),
+so check every note's octave: `'` and `,` move a single note, `o5` switches the
+rest of the line. Splitting a part into hands (`piano (right)`, `piano (left) o3`)
+and using `@N` for late entries keeps marks rare.
 
 To read the user's piece, list that collection. To change it, update `text`
 with `by: "claude"` and pass the version you read as `if_version`, so you never

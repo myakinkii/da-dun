@@ -28,7 +28,8 @@ const layout = computed(() => {
     const h = drum ? Math.max(2, drumRow - 2) : Math.max(2, rowH - 1);
     return { i, n, x: x(n.start), w: Math.max(2, x(n.end) - x(n.start)), y, h,
              color: drum ? "var(--drum)" : `var(--c${n.ch % 8})`, opacity: 0.45 + 0.5 * (n.vel / 127),
-             label: `${drum ? (GM_DRUMS[n.note - GM_DRUM_FIRST] || "Drum") : noteName(n.note)}, bar ${n.bar} beat ${n.beat}. Click to play from here.` };
+             label: `${drum ? (GM_DRUMS[n.note - GM_DRUM_FIRST] || "Drum") : noteName(n.note)}, bar ${n.bar} beat ${n.beat}` +
+                    (n.src ? `, line ${n.src.line}. Click to play from here and find it in the text.` : ". Click to play from here.") };
   });
   const beatTicks = s.barTicks / s.timeSig[0], lines = [], bars = [];
   for (let t = 0, b = 0; s.tickToSec(t) <= dur + 1e-6; t += beatTicks, b++) {

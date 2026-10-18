@@ -1,7 +1,7 @@
 title Parts and drums
 time 6/8
-organ: c'4. e | g2. |
-synth bass: c,4. g |
+organ o5: c4. e | g2. |
+synth bass o1: c4. g, |
 choir: [c e g]2. | [d f a]4. r |
 open hat: |x..X..x..x..|
 ride:     |x-x-x-x-x-x-|

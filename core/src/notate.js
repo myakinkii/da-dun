@@ -10,7 +10,6 @@ const STEP = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, b: 6 };
 const SEMI = [0, 2, 4, 5, 7, 9, 11];
 const PATCH_LC = new Map(GM_PATCHES.map((n, i) => [n.toLowerCase(), i]));
 const DRUM_LC = new Map(GM_DRUMS.map((n, i) => [n.toLowerCase(), GM_DRUM_FIRST + i]));
-const mod = (a, n) => ((a % n) + n) % n;
 
 /** Thrown for problems that stop conversion entirely. */
 export class NotationError extends Error {
@@ -45,14 +44,15 @@ function addDots(dur, dots) {
 function parseMelody(p, song, warn) {
   const ev = [];                       // [tick, on(1)/off(0), note, velocity]
   let t = 0, dur = PPQ;                // durations stick; a part starts with quarters
-  let ref = (p.num >= 32 && p.num <= 39 ? 2 : 4) * 7;   // diatonic reference: c2 for basses, else c4
+  const defaultOct = p.num >= 32 && p.num <= 39 ? 2 : 4;   // bass instruments: octave 2
   let tied = [];                       // notes held by a tie from the previous token
   let barStart = 0, barNo = 1;
   const { barTicks } = song;
 
-  for (const [line, rawBody] of p.chunks) {
-    const body = rawBody.replace(/\|/g, " | ");
-    for (const tok of body.match(/\[[^\]]*\]\S*|\S+/g) || []) {
+  for (const [line, body, col0, lineOct] of p.chunks) {
+    let oct = lineOct ?? defaultOct;              // each line starts in its own octave
+    for (const mt of body.matchAll(/>?\[[^\]]*\][^\s|]*|[^\s|]+|\|/g)) {
+      const tok = mt[0], src = { line, col: col0 + mt.index, len: tok.length };
       if (tok === "|") {
         const len = t - barStart;
         if (len !== barTicks && !(barNo === 1 && len < barTicks && len > 0)) {
@@ -62,7 +62,15 @@ function parseMelody(p, song, warn) {
         continue;
       }
       let m = tok.match(/^o(\d)$/);
-      if (m) { ref = Number(m[1]) * 7; continue; }
+      if (m) { oct = Number(m[1]); continue; }
+      if ((m = tok.match(/^@(\d+)$/))) {   // continue from bar N (rest until then)
+        const n = Number(m[1]), target = (n - 1) * barTicks;
+        if (n < 1 || target < t) { warn(line, `${p.name}: @${m[1]}, but this part is already past the start of bar ${m[1]}`); continue; }
+        for (const h of tied) ev.push([t, 0, h, 0]);
+        tied = [];
+        t = target; barStart = t; barNo = n;
+        continue;
+      }
       if (tok === "R") {               // rest until the end of the bar
         const left = barTicks - (t - barStart);
         if (left <= 0) { warn(line, `${p.name}: R in bar ${barNo}, but that bar is already full`); continue; }
@@ -90,21 +98,12 @@ function parseMelody(p, song, warn) {
       const pitches = [];
       if (what !== "r") {
         const names = what.startsWith("[") ? (what.slice(1, -1).match(/\S+/g) || []) : [what];
-        let r = ref, first;
         for (const n of names) {
           const nm = n.match(/^([a-gA-G])(#|b)?([',]*)$/);
           if (!nm) { warn(line, `${p.name}: bad note "${n}" in chord`); continue; }
-          let pos = r - mod(r, 7) + STEP[nm[1].toLowerCase()];   // same octave as the reference
-          if (pos - r > 3) pos -= 7;
-          if (r - pos > 3) pos += 7;
-          pos += 7 * (nm[3].split("'").length - 1) - 7 * (nm[3].split(",").length - 1);
-          const midi = (Math.floor(pos / 7) + 1) * 12 + SEMI[mod(pos, 7)]
-                     + (nm[2] === "#" ? 1 : nm[2] === "b" ? -1 : 0);
-          pitches.push(midi);
-          r = pos;
-          if (first === undefined) first = pos;
+          const o = oct + (nm[3].split("'").length - 1) - (nm[3].split(",").length - 1);
+          pitches.push((o + 1) * 12 + SEMI[STEP[nm[1].toLowerCase()]] + (nm[2] === "#" ? 1 : nm[2] === "b" ? -1 : 0));
         }
-        if (first !== undefined) ref = first;
       }
 
       const cont = new Set();
@@ -116,7 +115,7 @@ function parseMelody(p, song, warn) {
       const gap = tie ? 0 : (dur >= 120 ? 30 : Math.trunc(dur / 4));
       for (const p2 of pitches) {
         if (p2 < 0 || p2 > 127) { warn(line, `${p.name}: note out of MIDI range`); continue; }
-        if (!cont.has(p2)) ev.push([t, 1, p2, vel]);
+        if (!cont.has(p2)) ev.push([t, 1, p2, vel, src]);
         if (tie) tied.push(p2); else ev.push([t + dur - gap, 0, p2, 0]);
       }
       t += dur;
@@ -130,20 +129,38 @@ function parseDrum(p, song, warn) {
   const ev = [];
   const step = PPQ / 4, barSteps = song.barTicks / step;
   let t = 0;
-  for (const [line, rawBody] of p.chunks) {
-    const body = rawBody.replace(/\s+/g, "");
-    for (const bar of body.split("|")) {
-      if (bar === "") continue;
-      if (bar.length !== barSteps) warn(line, `${p.name}: bar "${bar}" has ${bar.length} steps, expected ${barSteps}`);
-      for (const ch of bar) {
+  for (const [line, body, col0] of p.chunks) {
+    // same reading as perl/notate.pl: whitespace ignored, @N jumps, | separates bars
+    let bar = [];
+    const endBar = () => {
+      if (!bar.length) return;
+      if (bar.length !== barSteps) warn(line, `${p.name}: bar "${bar.map(b => b.ch).join("")}" has ${bar.length} steps, expected ${barSteps}`);
+      for (const { ch, col } of bar) {
         if (ch === "x" || ch === "X") {
-          ev.push([t, 1, p.num, ch === "X" ? 120 : 90], [t + step / 2, 0, p.num, 0]);
+          ev.push([t, 1, p.num, ch === "X" ? 120 : 90, { line, col: col0 + col, len: 1 }], [t + step / 2, 0, p.num, 0]);
         } else if (ch !== "." && ch !== "-") {
           warn(line, `${p.name}: "${ch}" isn't x, X, . or -`);
         }
         t += step;
       }
+      bar = [];
+    };
+    for (let i = 0; i < body.length; i++) {
+      const ch = body[i];
+      if (/\s/.test(ch)) continue;
+      if (ch === "|") { endBar(); continue; }
+      if (ch === "@" && /\d/.test(body[i + 1] || "")) {
+        endBar();
+        let j = i + 1; while (j < body.length && /\d/.test(body[j])) j++;
+        const n = Number(body.slice(i + 1, j)), target = (n - 1) * song.barTicks;
+        if (n < 1 || target < t) warn(line, `${p.name}: @${n}, but this part is already past the start of bar ${n}`);
+        else t = target;
+        i = j - 1;
+        continue;
+      }
+      bar.push({ ch, col: i });
     }
+    endBar();
   }
   return { ev, len: t };
 }
@@ -152,7 +169,10 @@ function parseDrum(p, song, warn) {
  * Convert notation text to midicsv CSV.
  * @param {string} text
  * @returns {{csv: string, warnings: {line: number|null, message: string}[],
- *            title: string, tempo: number, ticks: number, barTicks: number, notes: number}}
+ *            title: string, tempo: number, ticks: number, barTicks: number, notes: number,
+ *            sources: Object<string, {line: number, col: number, len: number}>}}
+ *   `sources` maps "track:tick:note" (as in the CSV) to where that note is written in `text`
+ *   (1-based line, 0-based column), so a UI can jump from a note to its text.
  * @throws {NotationError} when the input can't be converted at all
  */
 export function notate(text) {
@@ -164,13 +184,14 @@ export function notate(text) {
   text.split(/\r?\n/).forEach((raw, i) => {
     const ln = i + 1;
     const l = raw.replace(/(^|\s)#.*$/, "").trim();
+    const lead = raw.length - raw.trimStart().length;
     if (l === "") return;
     let m;
     if ((m = l.match(/^title\s+(.+)$/i))) title = m[1];
     else if ((m = l.match(/^tempo\s+(\d+(?:\.\d+)?)$/i))) tempo = m[1];
     else if ((m = l.match(/^time\s+(\d+)\s*\/\s*(\d+)$/i))) { tsn = m[1]; tsd = m[2]; }
-    else if ((m = l.match(/^([A-Za-z][\w\s\-+]*?)\s*(\(([^)]*)\))?\s*:\s*(.*)$/))) {
-      const [, name, , label, body] = m;
+    else if ((m = l.match(/^([A-Za-z][\w\s\-+]*?)\s*(\(([^)]*)\))?\s*(?:o(\d))?\s*:\s*(.*)$/))) {
+      const [, name, , label, loct, body] = m;
       const key = name.toLowerCase() + (label !== undefined ? ` (${label})` : "");
       let p = byKey.get(key);
       if (!p) {
@@ -178,7 +199,8 @@ export function notate(text) {
         p = { name: name + (label !== undefined ? ` (${label})` : ""), kind, num, chunks: [] };
         byKey.set(key, p); parts.push(p);
       }
-      p.chunks.push([ln, body]);
+      p.chunks.push([ln, body, lead + l.length - body.length,   // column where the notes start
+                     loct === undefined ? undefined : Number(loct)]);
     }
     else throw new NotationError(ln, `can't understand "${l}"`);
   });
@@ -213,11 +235,13 @@ export function notate(text) {
     `1, ${end}, End_track`,
   ];
   let tn = 2, notes = 0;
+  const sources = {};
   for (const tr of tracks) {
     out.push(`${tn}, 0, Start_track`, `${tn}, 0, Title_t, "${q(tr.name)}"`);
     if (tr.prog !== null) out.push(`${tn}, 0, Program_c, ${tr.chan}, ${tr.prog}`);
     let last = 0;
-    for (const [t, on, n, v] of tr.ev.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1])) {
+    for (const [t, on, n, v, src] of tr.ev.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1])) {
+      if (on && src) sources[`${tn}:${t}:${n}`] ??= src;
       out.push(`${tn}, ${t}, ${on ? "Note_on_c" : "Note_off_c"}, ${tr.chan}, ${n}, ${v}`);
       if (on) notes++;
       if (t > last) last = t;
@@ -226,6 +250,6 @@ export function notate(text) {
     tn++;
   }
   out.push("0, 0, End_of_file");
-  return { csv: out.join("\n") + "\n", warnings, title, tempo: Number(tempo),
+  return { csv: out.join("\n") + "\n", warnings, title, tempo: Number(tempo), sources,
            ticks: end, barTicks: song.barTicks, notes };
 }

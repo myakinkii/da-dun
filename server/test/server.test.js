@@ -10,7 +10,7 @@ import { createApp } from "../src/app.js";
 const guide = readFileSync(new URL("../../docs/notation.txt", import.meta.url), "utf8");
 const page = join(mkdtempSync(join(tmpdir(), "da-dun-")), "index.html");
 writeFileSync(page, "<!doctype html><title>da-dun</title>");
-const sketch = "title Test\ntempo 96\n\npiano: a'4 R | e R |\n";
+const sketch = "title Test\ntempo 96\n\npiano: a4 R | e R |\n";
 const prompts = [];
 let reply = () => "```json\n" + JSON.stringify({ notation: sketch + "piano: r4 e8t f# g# >a2 |\n", explanation: "Rises to A." }) + "\n```";
 let server, base;
