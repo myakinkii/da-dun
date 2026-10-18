@@ -5,7 +5,8 @@ import PianoRoll from "./components/PianoRoll.vue";
 import HumBox from "./components/HumBox.vue";
 
 const sb = useSketchbook();
-const { player, text, compiled, current, currentKey, menu, syncNote, banner, humState, zipMidi } = sb;
+const { player, text, compiled, current, currentKey, menu, syncNote, banner, humState, zipMidi, previewing } = sb;
+const shownSong = player.song;   // what the player holds: the sketch, or a suggestion being previewed
 const editorEl = ref(null);
 const view = ref("csv");
 
@@ -96,8 +97,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
       <span v-if="compiled.ok && compiled.song" class="bpm">{{ Math.round(compiled.song.bpm) }} BPM</span>
       <span v-if="!player.canPlay" class="err">This browser can’t play audio.</span>
       <span v-if="player.state.error" class="err">{{ player.state.error }}</span>
+      <button v-if="player.canPlay" class="reset" title="Recreates the page’s audio connection, like reloading the page"
+              @click="player.resetAudio()">No sound? Reset audio</button>
     </div>
-    <PianoRoll :song="compiled.ok ? compiled.song : null" :position="player.state.position" :playing="player.state.playing"
+    <p v-if="previewing" class="previewing">Showing Claude’s suggestion. It isn’t in your sketch until you choose Use this.</p>
+    <PianoRoll :song="shownSong" :position="player.state.position" :playing="player.state.playing"
                @seek="player.seek" @play-note="n => player.play(n.start)" />
 
     <div class="tabs" role="tablist">
@@ -124,6 +128,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKey));
 .banner { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; padding: 8px 12px;
           border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 0.9rem; }
 .banner span { flex: 1; min-width: 12em; }
+.reset { margin-left: auto; border: 0; background: none; padding: 0; color: var(--muted); font-size: 0.85rem; cursor: pointer; }
+.reset:hover { color: var(--ink); text-decoration: underline; }
+.previewing { margin: 0 0 6px; font-size: 0.9rem; color: var(--accent); }
 .save { margin-top: 10px; }
 .save .hint { margin: 0; }
 .warn { border: 0; background: none; padding: 1px 0; color: var(--warn); text-align: left; cursor: pointer; font: inherit; }

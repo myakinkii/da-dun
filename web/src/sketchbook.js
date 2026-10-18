@@ -81,7 +81,8 @@ export function useSketchbook() {
   const syncNote = ref("Edits are saved in this browser as you type.");
   const banner = shallowRef(null);                // {text, actions: [{label, fn}]}
   const humState = reactive({ available: false, via: null, busy: false, note: "", proposal: null });
-  let synced = "", saveTimer = 0, compileTimer = 0, previewing = false, remote = null, humCtl = null;
+  const previewing = ref(false);         // the player holds Claude's suggestion, not the sketch
+  let synced = "", saveTimer = 0, compileTimer = 0, remote = null, humCtl = null;
 
   // ---- menu entries ----
   const entries = computed(() => {
@@ -107,7 +108,7 @@ export function useSketchbook() {
     clearTimeout(compileTimer); compileTimer = 0;
     const c = compileText(text.value);
     compiled.value = c;
-    if (c.ok && !previewing) player.load(c.song);
+    if (c.ok && !previewing.value) player.load(c.song);
   }
   function onInput(t) {
     text.value = t;
@@ -251,8 +252,8 @@ export function useSketchbook() {
   }
   function closeProposal(restorePlayer = true) {
     humState.proposal = null; humState.note = "";
-    if (previewing) {
-      previewing = false;
+    if (previewing.value) {
+      previewing.value = false;
       if (restorePlayer && compiled.value.ok) player.load(compiled.value.song);
     }
   }
@@ -315,7 +316,7 @@ export function useSketchbook() {
     const p = humState.proposal; if (!p) return;
     const c = compileText(p.notation);
     if (!c.ok) { humState.note = c.error; return; }
-    previewing = true;
+    previewing.value = true;
     player.load(c.song);
     player.play(0);
   }
@@ -374,9 +375,8 @@ export function useSketchbook() {
   }
 
   return {
-    player, text, compiled, current, currentKey, menu, syncNote, banner, humState, humHistory, zipMidi,
+    player, text, compiled, current, currentKey, menu, syncNote, banner, humState, humHistory, zipMidi, previewing,
     start, open, onInput, compileNow, newSketch, revert, remove, saveFile, bannerAction,
     humAsk, humStop, humPreview, humUse, humDiscard, humForget, showProposal,
-    get previewing() { return previewing; },
   };
 }

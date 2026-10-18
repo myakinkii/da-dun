@@ -7,9 +7,12 @@ globalThis.requestAnimationFrame ??= () => 0;
 globalThis.cancelAnimationFrame ??= () => {};
 const { createPlayer } = await import("../src/player.js");
 
-function fakeTone() {
+function fakeTone({ contextState = "running", startResolves = true } = {}) {
   const log = [];
-  class Node { constructor() { this.volume = { value: 0 }; } connect() { return this; } toDestination() { return this; } dispose() {} }
+  class Node { constructor() { this.volume = { value: 0 }; } connect() { return this; } toDestination() { return this; } dispose() { log.push(["dispose", this.constructor.name]); } }
+  class Context { constructor() { this.state = contextState; this.id = ++Context.n; } dispose() { log.push(["contextDisposed", this.id]); } }
+  Context.n = 0;
+  let ctx = new Context();
   class Synth extends Node {
     triggerAttackRelease(...a) { log.push(["note", ...a]); }
     releaseAll() { log.push(["releaseAll"]); }
@@ -22,7 +25,9 @@ function fakeTone() {
     run() { for (const e of this.events.slice().sort((a, b) => a.at - b.at)) e.fn(e.at); },   // fire everything
   };
   return { log, transport, Tone: {
-    start: async () => {}, getTransport: () => transport, getDraw: () => ({ schedule: fn => fn() }),
+    start: () => (startResolves ? Promise.resolve() : new Promise(() => {})), getTransport: () => transport,
+    getDraw: () => ({ schedule: fn => fn() }),
+    getContext: () => ctx, setContext: c => { ctx = c; log.push(["newContext", c.id]); }, Context,
     Limiter: Node, Volume: Node, Filter: Node, PolySynth: Synth, MonoSynth: Synth, MembraneSynth: Synth, NoiseSynth: Synth,
     Frequency: n => ({ toFrequency: () => 440 * 2 ** ((n - 69) / 12) }),
   } };
@@ -81,4 +86,44 @@ test("no audio: play does nothing", async () => {
   await p.play(0);
   assert.equal(p.state.playing, false);
   assert.equal(f.log.length, 0);
+});
+
+test("audio that never starts: a message instead of waiting forever", async () => {
+  const f = fakeTone({ startResolves: false }), p = createPlayer({ Tone: f.Tone, canPlay: true });
+  p.load(songOf("piano: c d e f |"));
+  const t0 = Date.now();
+  await p.play(0);
+  assert.ok(Date.now() - t0 < 2500);
+  assert.equal(p.state.playing, false);
+  assert.match(p.state.error, /hasn’t started audio/);
+});
+
+test("a suspended context is reported too", async () => {
+  const f = fakeTone({ contextState: "suspended" }), p = createPlayer({ Tone: f.Tone, canPlay: true });
+  p.load(songOf("piano: c d e f |"));
+  await p.play(0);
+  assert.equal(p.state.playing, false);
+  assert.match(p.state.error, /Reset audio/);
+});
+
+test("reset audio: fresh context, old synths disposed, plays from the same spot", async () => {
+  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
+  p.load(songOf("tempo 120\npiano: c4 d e f | g a b c |"));
+  await p.play(0);
+  f.transport.seconds = 1.2;
+  p.stop();
+  await p.resetAudio();
+  assert.ok(f.log.some(l => l[0] === "newContext" && l[1] === 2));
+  assert.ok(f.log.some(l => l[0] === "contextDisposed" && l[1] === 1));
+  assert.ok(f.log.some(l => l[0] === "dispose" && l[1] === "Synth"));
+  assert.equal(p.state.playing, true);
+  assert.deepEqual(f.log.filter(l => l[0] === "start").map(l => l[1]), [0, 1.2]);
+});
+
+test("song ref follows what's loaded (the piano roll shows it)", () => {
+  const f = fakeTone(), p = createPlayer({ Tone: f.Tone, canPlay: true });
+  const a = songOf("piano: c d e f |"), b = songOf("piano: c d e f | g a b c |");
+  p.load(a); assert.equal(p.song.value, a);
+  p.load(b); assert.equal(p.song.value, b);
+  assert.equal(p.state.duration, b.duration);
 });

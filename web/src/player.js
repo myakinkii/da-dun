@@ -2,13 +2,13 @@
 // Sounds are simple synthesized approximations of General MIDI families and
 // a synthesized drum kit; good enough for sketching, and fully self-contained.
 
-import { start, getTransport, getDraw, Limiter, Volume, Filter, PolySynth, MonoSynth,
-         MembraneSynth, NoiseSynth, Frequency } from "tone";
+import { start, getTransport, getDraw, getContext, setContext, Context, Limiter, Volume, Filter,
+         PolySynth, MonoSynth, MembraneSynth, NoiseSynth, Frequency } from "tone";
 
 // Only the parts of Tone.js we use (keeps the bundle small); tests pass a fake.
-const ToneModule = { start, getTransport, getDraw, Limiter, Volume, Filter, PolySynth, MonoSynth,
-                     MembraneSynth, NoiseSynth, Frequency };
-import { reactive } from "vue";
+const ToneModule = { start, getTransport, getDraw, getContext, setContext, Context, Limiter, Volume, Filter,
+                     PolySynth, MonoSynth, MembraneSynth, NoiseSynth, Frequency };
+import { reactive, shallowRef } from "vue";
 
 // One preset per General MIDI family (program >> 3)
 const FAMILY = [
@@ -64,7 +64,8 @@ function makeDrums(Tone, out) {
 }
 
 /**
- * Create a player. `state` is reactive: {playing, position, duration}.
+ * Create a player. `state` is reactive: {playing, position, duration, error};
+ * `song` is a ref to the song currently loaded (what a piano roll should show).
  * play(from) starts at `from` seconds; seek(t) moves (and keeps playing if
  * it was); stop() pauses where it is; load(song) swaps the song.
  * `Tone` can be injected (tests use a fake one).
@@ -73,6 +74,7 @@ export function createPlayer({ Tone = ToneModule, canPlay: forceCanPlay } = {}) 
   const state = reactive({ playing: false, position: 0, duration: 0, error: "" });
   const canPlay = forceCanPlay ?? (typeof window !== "undefined" && !!(window.AudioContext || window.webkitAudioContext));
   let song = null, out = null, voices = new Map(), drums = null, raf = 0;
+  const songRef = shallowRef(null);
 
   function ensureOutput() {
     if (out) return;
@@ -104,7 +106,13 @@ export function createPlayer({ Tone = ToneModule, canPlay: forceCanPlay } = {}) 
     if (!song || !song.notes.length || !canPlay) return;
     const started = Tone.start();          // must begin inside the click
     halt();
-    try { await started; } catch (e) { state.error = "Your browser blocked audio. Click Play again."; return; }
+    // Browsers can keep audio suspended; don't wait forever for it.
+    const ok = await Promise.race([started.then(() => true, () => false),
+                                   new Promise(r => setTimeout(() => r(false), 1500))]);
+    if (!ok || Tone.getContext().state !== "running") {
+      state.error = "The browser hasn’t started audio. Click Play again, or Reset audio.";
+      return;
+    }
     state.error = "";
     ensureOutput();
     if (!drums && song.notes.some(n => n.ch === 9)) drums = makeDrums(Tone, out);
@@ -149,10 +157,28 @@ export function createPlayer({ Tone = ToneModule, canPlay: forceCanPlay } = {}) 
     const was = state.playing, at = state.position;
     if (was) { halt(); state.playing = false; }
     song = next;
+    songRef.value = next;
     state.duration = next ? next.duration : 0;
     state.position = Math.min(at, state.duration);
     if (state.position >= state.duration) state.position = 0;
     if (was && next) play(state.position);
   }
-  return { state, canPlay, play, stop, seek, load, toggle: () => (state.playing ? stop() : play()) };
+  // Recreate the audio connection, like a page reload does. Fixes silence after
+  // the output device changed (headphones, Bluetooth) or audio got stuck.
+  function resetAudio() {
+    if (state.playing) { halt(); state.playing = false; }
+    for (const v of voices.values()) v.dispose();
+    voices = new Map();
+    if (drums) drums.dispose();
+    drums = null;
+    if (out) out.dispose();
+    out = null;
+    const old = Tone.getContext();
+    Tone.setContext(new Tone.Context());
+    try { old.dispose(); } catch (e) {}
+    state.error = "";
+    return play(state.position);           // called from a click, so audio may start right away
+  }
+  return { state, song: songRef, canPlay, play, stop, seek, load, resetAudio,
+           toggle: () => (state.playing ? stop() : play()) };
 }
